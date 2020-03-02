@@ -43,13 +43,25 @@ std::shared_ptr<gltf::scene_node>gltf::make_graph(
 
       auto [joints_accessor, joints_b_view, joints_buf, joints_data, joints_size] = gltf::get_buffer_data(mdl, primitive.attributes.at("JOINTS_0"));
       gl::buffer<GL_ARRAY_BUFFER> joints_buffer;
-      normals_buffer.fill(const_cast<uint8_t*>(joints_data), joints_size);
-      meshes.back().vao.add_vertex_array<float>(joints_buffer, 4, joints_accessor.ByteStride(joints_b_view));
+        joints_buffer.fill(const_cast<uint8_t*>(joints_data), joints_size);
+
+      meshes.back().vao.add_vertex_array<uint16_t>(
+              joints_buffer,
+              tinygltf::GetNumComponentsInType(joints_accessor.type),
+              joints_accessor.ByteStride(joints_b_view),
+              0, joints_accessor.componentType,
+              joints_accessor.normalized);
 
       auto [weights_accessor, weights_b_view, weights_buf, weights_data, weights_size] = gltf::get_buffer_data(mdl, primitive.attributes.at("WEIGHTS_0"));
       gl::buffer<GL_ARRAY_BUFFER> weights_buffer;
-      normals_buffer.fill(const_cast<uint8_t*>(weights_data), weights_size);
-      meshes.back().vao.add_vertex_array<float>(weights_buffer, 4, weights_accessor.ByteStride(weights_b_view));
+      weights_buffer.fill(const_cast<uint8_t*>(weights_data), weights_size);
+
+      meshes.back().vao.add_vertex_array<float>(
+              weights_buffer,
+              tinygltf::GetNumComponentsInType(joints_accessor.type),
+              weights_accessor.ByteStride(weights_b_view),
+              0, weights_accessor.componentType,
+              weights_accessor.normalized);
 
       auto [ind_accessor, ind_b_view, ind_buf, ind_data, ind_size] = gltf::get_buffer_data(mdl, primitive.indices);
       meshes.back().indices.fill(const_cast<uint8_t*>(ind_data), ind_size);

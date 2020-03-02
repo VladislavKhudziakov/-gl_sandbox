@@ -79,20 +79,15 @@ const char* v_shader_source =
 "uniform mat4 u_proj;"
 "uniform mat4 u_view;"
 "uniform mat4 u_world;"
-"uniform mat4 u_bones[7];"
+"uniform mat4 u_bones[6];"
 "out vec3 v_normal;"
 "void main() {"
-"vec4 v = mat4("
-"1.0, 0.0, 0.0, 0.0,"
-"0.0, 1.0, 0.0, 0.0,"
-"0.0, 0.0, 1.0, 0.0,"
-"0.0, 0.0, 0.0, 1.0) * vec4(1.);"
 "v_normal = a_normal;"
-"gl_Position = u_proj * u_view * v *"
-//"( * u_bones[0] + "
-//"a_weights.y * u_bones[0] + "
-//"a_weights.z * u_bones[0] + "
-//"a_weights.w * u_bones[0]) *"
+"gl_Position = u_proj * u_view *"
+"(a_weights.x * u_bones[int(a_joints.x)] + "
+"a_weights.y * u_bones[int(a_joints.y)] + "
+"a_weights.z * u_bones[int(a_joints.z)] + "
+"a_weights.w * u_bones[int(a_joints.w)]) *"
 "vec4(a_pos, 1.0);"
 "}";
 
@@ -173,7 +168,7 @@ int main() {
           bones.reserve(skins[mesh.skin_idx].world_matrices.size());
 
           for (size_t i = 0; i < skins[mesh.skin_idx].world_matrices.size(); ++i) {
-            bones.push_back(glm::inverse(skins[mesh.skin_idx].world_matrices[i]) * skins[mesh.skin_idx].inv_bind_poses[i]);
+            bones.push_back(skins[mesh.skin_idx].world_matrices[i] * skins[mesh.skin_idx].inv_bind_poses[i]);
           }
 
           program.set_uniform("u_bones", bones.data(), bones.size());
