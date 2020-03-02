@@ -14,6 +14,8 @@
 
 namespace gltf
 {
+  class scene_node;
+
   struct mesh
   {
     gl::vertex_array_object vao;
@@ -25,21 +27,37 @@ namespace gltf
 
   struct skin
   {
-    std::vector<glm::mat4> world_matrices;
     std::vector<glm::mat4> inv_bind_poses;
+    std::vector<std::shared_ptr<scene_node>> nodes;
+  };
+
+  struct anim_keys
+  {
+    std::vector<glm::vec3> translation;
+    std::vector<glm::vec3> scale;
+    std::vector<glm::quat> rotation;
+  };
+
+  struct animation
+  {
+    std::vector<std::shared_ptr<scene_node>> nodes;
+    std::vector<anim_keys> anim_keys;
   };
 
   class scene_node
   {
   public:
+    uint32_t get_gltf_idx() const;
     const glm::mat4& get_world_matrix() const;
-    const glm::mat4& get_inv_bind_matrix() const;
+    void set_translation(glm::vec3);
+    void set_rotation(glm::quat);
+    void set_scale(glm::vec3);
+    void update_graph();
   private:
     glm::mat4 calc_TRS() const;
 
     uint32_t m_gltf_idx;
     glm::mat4 m_world_matrix {1};
-    glm::mat4 m_inv_bind_matrix {1};
     glm::vec3 m_translation {0};
     glm::vec3 m_scale {1};
     glm::quat m_rotation {1.0, 0.0, 0.0, 0.0};
@@ -79,5 +97,6 @@ using accessor_data = std::tuple<
   }
 
   std::vector<skin> get_skins(const tinygltf::Model &mdl, std::shared_ptr<scene_node> root);
+  std::vector<animation> get_animations(const tinygltf::Model &mdl, std::shared_ptr<scene_node> root);
 }
 

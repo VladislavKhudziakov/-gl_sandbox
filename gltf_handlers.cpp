@@ -92,11 +92,6 @@ glm::mat4 gltf::scene_node::calc_TRS() const
   return t * r * s;
 }
 
-const glm::mat4 &gltf::scene_node::get_inv_bind_matrix() const
-{
-  return m_inv_bind_matrix;
-}
-
 std::shared_ptr<gltf::scene_node> gltf::make_graph(const tinygltf::Model &mdl, std::vector<mesh>& meshes)
 {
   auto root = std::make_shared<gltf::scene_node>();
@@ -109,7 +104,6 @@ std::shared_ptr<gltf::scene_node> gltf::make_graph(const tinygltf::Model &mdl, s
 
   return root;
 }
-
 
 std::shared_ptr<gltf::scene_node> gltf::find_node_by_index(
     const std::shared_ptr<scene_node> & n, uint32_t idx) {
@@ -125,6 +119,40 @@ std::shared_ptr<gltf::scene_node> gltf::find_node_by_index(
 
     return nullptr;
 }
+
+uint32_t gltf::scene_node::get_gltf_idx() const
+{
+  return m_gltf_idx;
+}
+
+void gltf::scene_node::set_translation(glm::vec3 t)
+{
+  m_translation = t;
+}
+
+void gltf::scene_node::set_rotation(glm::quat r)
+{
+  m_rotation = r;
+}
+
+void gltf::scene_node::set_scale(glm::vec3 s)
+{
+  m_scale = s;
+}
+
+void gltf::scene_node::update_graph()
+{
+  if (m_parent.lock() == nullptr) {
+    m_world_matrix = glm::mat4{1};
+  } else {
+    m_world_matrix = m_parent.lock()->m_world_matrix * calc_TRS();
+  }
+
+  for (auto& child : m_children) {
+    child->update_graph();
+  }
+}
+
 std::vector<gltf::skin> gltf::get_skins(
     const tinygltf::Model &mdl,
     std::shared_ptr<scene_node> root)
@@ -134,15 +162,62 @@ std::vector<gltf::skin> gltf::get_skins(
 
   for (const auto& skin : mdl.skins) {
     skins.emplace_back();
-    skins.back().world_matrices.reserve(skin.joints.size());
     skins.back().inv_bind_poses.resize(skin.joints.size());
 
     auto [ib_accessor, ib_b_view, ib_buf, ib_data, ib_data_size] = get_buffer_data(mdl, skin.inverseBindMatrices);
     std::memcpy(skins.back().inv_bind_poses.data(), ib_data, ib_data_size);
 
     for (auto joint : skin.joints) {
-      skins.back().world_matrices.emplace_back(find_node_by_index(root, joint)->get_world_matrix());
+      auto node = find_node_by_index(root, joint);
+      skins.begin()->nodes.emplace_back(node);
     }
   }
   return skins;
 }
+
+
+std::vector<gltf::animation> gltf::get_animations(const tinygltf::Model &mdl, std::shared_ptr<scene_node> root)
+{
+  std::vector<animation> animations;
+
+  for (const auto& animation : mdl.animations) {
+    animations.emplace_back();
+
+    for (const auto& channel : animation.channels) {
+      auto& curr_anim = animations.back();
+      const auto& sampler = animation.samplers.at(channel.sampler);
+
+      auto node_it = std::find_if(curr_anim.nodes.begin(), curr_anim.nodes.end(), [&](const std::shared_ptr<scene_node>& node) {
+        return channel.target_node == node->get_gltf_idx();
+      });
+
+      uint32_t idx;
+
+      if (node_it == curr_anim.nodes.end()) {
+        curr_anim.nodes.emplace_back(find_node_by_index(root, channel.target_node));
+        curr_anim.anim_keys.emplace_back();
+        idx = curr_anim.nodes.size() - 1;
+      } else {
+        idx = node_it - curr_anim.nodes.begin();
+      }
+      auto [data_accessor, data_b_view, data_buf, data_ptr, data_size] = get_buffer_data(mdl, sampler.output);
+
+      if (channel.target_path == "translation") {
+        curr_anim.anim_keys[idx].translation.resize(data_accessor.count);
+        std::memcpy(curr_anim.anim_keys[idx].translation.data(), data_ptr, data_size);
+      } else if (channel.target_path == "scale") {
+        curr_anim.anim_keys[idx].scale.resize(data_accessor.count);
+        std::memcpy(curr_anim.anim_keys[idx].scale.data(), data_ptr, data_size);
+      } else if (channel.target_path == "rotation") {
+        curr_anim.anim_keys[idx].rotation.resize(data_accessor.count);
+        std::memcpy(curr_anim.anim_keys[idx].rotation.data(), data_ptr, data_size);
+        for (auto& r : curr_anim.anim_keys[idx].rotation) {
+          std::swap(r.w, r.z);
+        }
+      }
+    }
+  }
+
+  return animations;
+}
+
