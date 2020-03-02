@@ -148,9 +148,8 @@ int main() {
 
       {
         auto time = glfwGetTime();
-        const auto camera_radius = 30;
-        const auto camera_position = glm::vec3{cos(time * .1) * camera_radius, 0, sin(time * .1) * camera_radius};
-        const auto target = glm::vec3{0, 0, -2};
+        glm::vec3 camera_position {10, 0, -5};
+        const auto target = glm::vec3{0, 0, -10};
         const auto up = glm::vec3{0, 1, 0};
 
         auto view = glm::lookAt(camera_position, target, up);
