@@ -12,7 +12,7 @@
 
 #include <third/tinygltf/tiny_gltf.h>
 
-constexpr auto model_path = "/Users/vladislavkhudiakov/Desktop/whale.CYCLES.glb";
+constexpr auto model_path = "../models/whale.CYCLES.glb";
 
 float positions[] = {
   0,  1,  // 0

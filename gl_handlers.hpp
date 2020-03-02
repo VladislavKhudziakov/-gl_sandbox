@@ -8,6 +8,7 @@
 #include <glm/matrix.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include <memory>
 #include <string>
 #include <cinttypes>
 
