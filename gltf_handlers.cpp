@@ -211,9 +211,6 @@ std::vector<gltf::animation> gltf::get_animations(const tinygltf::Model &mdl, st
       } else if (channel.target_path == "rotation") {
         curr_anim.anim_keys[idx].rotation.resize(data_accessor.count);
         std::memcpy(curr_anim.anim_keys[idx].rotation.data(), data_ptr, data_size);
-        for (auto& r : curr_anim.anim_keys[idx].rotation) {
-          std::swap(r.w, r.z);
-        }
       }
     }
   }

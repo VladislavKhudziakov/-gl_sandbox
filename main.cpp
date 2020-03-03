@@ -129,7 +129,7 @@ int main() {
               anim_key %= anims[0].anim_keys[j].translation.size();
             }
 
-//            h->update_graph();
+            h->update_graph();
 
             std::vector<glm::mat4> bones;
             bones.reserve(skins[mesh.skin_idx].nodes.size());
