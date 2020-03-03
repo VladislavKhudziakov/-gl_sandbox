@@ -89,7 +89,7 @@ int main() {
 
       glEnable(GL_DEPTH_TEST);
 
-      auto anim_key = 0;
+      float anim_key = 0;
 
       while (!glfwWindowShouldClose(window)) {
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
@@ -115,18 +115,18 @@ int main() {
 
             for (size_t j = 0; j < anims[0].nodes.size(); ++j) {
               if (!anims[0].anim_keys[j].translation.empty()) {
-                anims[0].nodes[j]->set_translation(anims[0].anim_keys[j].translation[anim_key]);
+                anims[0].nodes[j]->set_translation(anims[0].anim_keys[j].translation[uint32_t(anim_key) % anims[0].anim_keys[j].translation.size()]);
               }
 
               if (!anims[0].anim_keys[j].scale.empty()) {
-                anims[0].nodes[j]->set_scale(anims[0].anim_keys[j].scale[anim_key]);
+                anims[0].nodes[j]->set_scale(anims[0].anim_keys[j].scale[uint32_t(anim_key) % anims[0].anim_keys[j].translation.size()]);
               }
 
               if (!anims[0].anim_keys[j].rotation.empty()) {
-                anims[0].nodes[j]->set_rotation(anims[0].anim_keys[j].rotation[anim_key]);
+                anims[0].nodes[j]->set_rotation(anims[0].anim_keys[j].rotation[uint32_t(anim_key) % anims[0].anim_keys[j].rotation.size()]);
               }
 
-              anim_key %= anims[0].anim_keys[j].translation.size();
+
             }
 
             h->update_graph();
@@ -142,7 +142,7 @@ int main() {
 
             glDrawElements(GL_TRIANGLES, mesh.indices_count, GL_UNSIGNED_SHORT, nullptr);
 
-            anim_key++;
+            anim_key += 0.3;
           }
         }
 
