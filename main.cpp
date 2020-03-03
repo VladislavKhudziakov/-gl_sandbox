@@ -23,15 +23,22 @@ const char* v_shader_source =
 "uniform mat4 u_proj;"
 "uniform mat4 u_view;"
 "uniform mat4 u_world;"
-"uniform mat4 u_bones[166];"
+"uniform sampler2D u_bones_texture;"
 "out vec3 v_normal;"
+"mat4 get_bone(int bone) {"
+"return mat4("
+"texelFetch(u_bones_texture, ivec2(0, bone), 0),"
+"texelFetch(u_bones_texture, ivec2(1, bone), 0),"
+"texelFetch(u_bones_texture, ivec2(2, bone), 0),"
+"texelFetch(u_bones_texture, ivec2(3, bone), 0));"
+"}"
 "void main() {"
 "v_normal = a_normal;"
 "gl_Position = u_proj * u_view *"
-"(a_weights.x * u_bones[int(a_joints.x)] + "
-"a_weights.y * u_bones[int(a_joints.y)] + "
-"a_weights.z * u_bones[int(a_joints.z)] + "
-"a_weights.w * u_bones[int(a_joints.w)]) *"
+"(a_weights.x * get_bone(int(a_joints.x)) + "
+"a_weights.y * get_bone(int(a_joints.y)) + "
+"a_weights.z * get_bone(int(a_joints.z)) + "
+"a_weights.w * get_bone(int(a_joints.w))) *"
 "vec4(a_pos, 1.0);"
 "}";
 
@@ -66,6 +73,11 @@ int main() {
     }
 
     {
+      glEnable(GL_DEBUG_OUTPUT);
+      glDebugMessageCallback([](GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei len, const GLchar* msg, const void* user_param) {
+        std::cerr << msg << std::endl;
+      }, nullptr);
+
       tinygltf::Model mdl{};
       std::string err;
       std::string warn;
@@ -90,6 +102,8 @@ int main() {
       glEnable(GL_DEPTH_TEST);
 
       float anim_key = 0;
+
+      gl::texture<GL_TEXTURE_2D> animation_texture;
 
       while (!glfwWindowShouldClose(window)) {
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
@@ -125,8 +139,6 @@ int main() {
               if (!anims[0].anim_keys[j].rotation.empty()) {
                 anims[0].nodes[j]->set_rotation(anims[0].anim_keys[j].rotation[uint32_t(anim_key) % anims[0].anim_keys[j].rotation.size()]);
               }
-
-
             }
 
             h->update_graph();
@@ -139,6 +151,11 @@ int main() {
             }
 
             program.set_uniform("u_bones", bones.data(), bones.size());
+
+            animation_texture.fill<float>(glm::value_ptr(bones.front()), 4, bones.size());
+
+            gl::bind_guard anim_tex(animation_texture);
+            program.set_uniform("u_bones_texture", 0);
 
             glDrawElements(GL_TRIANGLES, mesh.indices_count, GL_UNSIGNED_SHORT, nullptr);
 

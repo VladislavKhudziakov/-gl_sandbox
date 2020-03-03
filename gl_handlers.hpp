@@ -350,7 +350,8 @@ namespace gl
     {
       glGenTextures(1, &m_gl_handler);
 
-      bind_guard guard(*this);
+      glBindTexture(TextureType, m_gl_handler);
+//      bind_guard guard(*this);
 
       glTexParameteri(TextureType, GL_TEXTURE_MIN_FILTER, filter_type);
       glTexParameteri(TextureType, GL_TEXTURE_MAG_FILTER, filter_type);
@@ -361,6 +362,8 @@ namespace gl
       if constexpr (TextureType == GL_TEXTURE_CUBE_MAP) {
         glTexParameteri(TextureType, GL_TEXTURE_WRAP_R, wrap);
       }
+
+      glBindTexture(TextureType, 0);
     }
 
     texture(const texture&) = delete;
@@ -393,7 +396,7 @@ namespace gl
 
     void unbind() const
     {
-      glBindTexture(TextureType, m_gl_handler);
+      glBindTexture(TextureType, 0);
     }
 
     template <typename DataType, typename ...Args>
@@ -415,7 +418,7 @@ namespace gl
     {
       void operator()(void* data, int32_t w, int32_t h, bool rgb = false, bool gen_mips = false)
       {
-        glTexImage2D(GL_TEXTURE_2D, 0, rgb ? GL_RGB32F : GL_RGBA32F, w, h, 0, rgb ? GL_RGB32F : GL_RGBA32F, GL_FLOAT, data);
+        glTexImage2D(GL_TEXTURE_2D, 0, rgb ? GL_RGB32F : GL_RGBA32F, w, h, 0, rgb ? GL_RGB : GL_RGBA, GL_FLOAT, data);
 
         if (gen_mips) {
           glGenerateMipmap(GL_TEXTURE_2D);
