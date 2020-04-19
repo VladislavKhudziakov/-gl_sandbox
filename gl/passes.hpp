@@ -12,12 +12,13 @@
 #include <algorithm>
 #include <array>
 #include <optional>
+#include <variant>
 
 namespace gl
 {
   enum class attachment_type
   {
-    color, depth
+    color_rgba8u, color_rgba16f, depth_24f
   };
 
   enum class depth_func
@@ -30,21 +31,21 @@ namespace gl
     front, back, off
   };
 
-  template <attachment_type AttachmentType>
   class attachment
   {
   public:
-    attachment() = default;
+    explicit attachment(attachment_type type) : m_type(type) { };
     ~attachment() = default;
 
-    attachment(attachment&& src) {
+    attachment(attachment&& src) noexcept {
       *this = std::move(src);
     }
 
-    attachment&operator=(attachment&& src)
+    attachment&operator=(attachment&& src) noexcept
     {
       if (this != &src) {
         m_texture_handler = std::move(src.m_texture_handler);
+        m_type = src.m_type;
       }
 
       return *this;
@@ -52,7 +53,7 @@ namespace gl
 
     void resize(uint32_t w, uint32_t h)
     {
-      m_texture_handler.fill<attachment<AttachmentType>>(nullptr, w, h);
+      m_texture_handler.fill<attachment>(nullptr, w, h, m_type);
     }
 
     texture<GL_TEXTURE_2D>& get_handler()
@@ -72,26 +73,29 @@ namespace gl
 
   private:
     texture<GL_TEXTURE_2D> m_texture_handler;
+    attachment_type m_type;
   };
 
-  template<> struct texture_fill_resolver<attachment<attachment_type::color>, GL_TEXTURE_2D>
+  template<> struct texture_fill_resolver<attachment, GL_TEXTURE_2D>
   {
-    void operator()(void* data, int32_t w, int32_t h)
+    void operator()(void* data, int32_t w, int32_t h, attachment_type type)
     {
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+      switch (type) {
+
+      case attachment_type::color_rgba8u:
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+        break;
+      case attachment_type::color_rgba16f:
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, w, h, 0, GL_RGBA, GL_FLOAT, nullptr);
+        break;
+      case attachment_type::depth_24f:
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_GREATER);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, w, h, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+        break;
+      }
     }
   };
-
-  template<> struct texture_fill_resolver<attachment<attachment_type::depth>, GL_TEXTURE_2D>
-  {
-    void operator()(void* data, int32_t w, int32_t h)
-    {
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_GREATER);
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, w, h, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
-    }
-  };
-
 
   class framebuffer
   {
@@ -102,7 +106,7 @@ namespace gl
       color1, color2, color3, color4, depth
     };
 
-    inline constexpr static uint32_t max_attachments = 4;
+    inline constexpr static uint32_t max_attachments = 5;
 
     framebuffer(uint32_t w, uint32_t h)
     : m_width(w)
@@ -127,13 +131,9 @@ namespace gl
         m_bound_target = src.m_bound_target;
 
         for (int i = 0; i < max_attachments; ++i) {
-          if (src.m_color_attachments.at(i) != std::nullopt) {
-            m_color_attachments[i].emplace(std::move(*src.m_color_attachments.at(i)));
+          if (src.m_attachments.at(i) != std::nullopt) {
+            m_attachments[i].emplace(std::move(*src.m_attachments.at(i)));
           }
-        }
-
-        if (src.m_depth_attachment != std::nullopt) {
-          m_depth_attachment.emplace(std::move(*src.m_depth_attachment));
         }
 
         std::swap(m_gl_handler, src.m_gl_handler);
@@ -164,16 +164,13 @@ namespace gl
       glGetIntegerv(GL_FRAMEBUFFER, &curr_binding);
       {
         bind_guard guard {*this, GL_FRAMEBUFFER};
-        for (auto& attachment : m_color_attachments) {
+        for (auto& attachment : m_attachments) {
+
           if (attachment == std::nullopt) {
             continue;
           }
 
           attachment->resize(w, h);
-        }
-
-        if (m_depth_attachment != std::nullopt) {
-          m_depth_attachment->resize(w, h);
         }
       }
       glBindFramebuffer(GL_FRAMEBUFFER, curr_binding);
@@ -205,24 +202,22 @@ namespace gl
       glBindFramebuffer(GL_DRAW_FRAMEBUFFER, draw_fb);
     }
 
-    template <typename DataType, attachment_target AttachmentTarget>
+    template <attachment_target AttachmentTarget, attachment_type AttachmentType>
     void add_attachment()
     {
       bind_guard guard(*this, GL_DRAW_FRAMEBUFFER);
+      auto& attachment = get_attachment_optional<AttachmentTarget>();
+      assert(attachment == std::nullopt);
+      attachment.emplace(AttachmentType);
+      attachment->resize(m_width, m_height);
 
       if constexpr (AttachmentTarget == attachment_target::depth) {
-        auto& attachment = get_attachment_optional<attachment_type::depth, AttachmentTarget>();
-        assert(attachment == std::nullopt);
-        attachment.emplace();
-        attachment->resize(m_width, m_height);
+        static_assert(AttachmentType == attachment_type::depth_24f);
         glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, *attachment, 0);
       } else {
-        auto& attachment = get_attachment_optional<attachment_type::color, AttachmentTarget>();
-        assert(attachment == std::nullopt);
-        attachment.emplace();
-        attachment->resize(m_width, m_height);
-        const auto attachment_idx = uint32_t(AttachmentTarget);
-        glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + attachment_idx, GL_TEXTURE_2D, *attachment, 0);
+        static_assert(AttachmentType == attachment_type::color_rgba8u || AttachmentType == attachment_type::color_rgba16f);
+        auto attachment_idx = uint32_t(AttachmentTarget);
+        glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + attachment_idx, GL_TEXTURE_2D, *(attachment), 0);
       }
     }
 
@@ -230,11 +225,11 @@ namespace gl
     auto& get_attachment()
     {
       if constexpr (AttachmentTarget == attachment_target::depth) {
-        auto& a = get_attachment_optional<attachment_type::depth, AttachmentTarget>();
+        auto& a = get_attachment_optional<attachment_type::depth_24f, AttachmentTarget>();
         assert(a != std::nullopt);
         return *a;
       } else {
-        auto& a = get_attachment_optional<attachment_type::color, AttachmentTarget>();
+        auto& a = get_attachment_optional<attachment_type::color_rgba8u, AttachmentTarget>();
         assert(a != std::nullopt);
         return *a;
       }
@@ -243,36 +238,25 @@ namespace gl
     template <attachment_target AttachmentTarget>
     const auto& get_attachment() const
     {
-      if constexpr (AttachmentTarget == attachment_target::depth) {
-        auto& a = get_attachment_optional<attachment_type::depth, AttachmentTarget>();
+        auto& a = get_attachment_optional<AttachmentTarget>();
         assert(a != std::nullopt);
         return *a;
-      } else {
-        auto& a = get_attachment_optional<attachment_type::color, AttachmentTarget>();
-        assert(a != std::nullopt);
-        return *a;
-      }
     }
 
   private:
-    template <attachment_type AttachmentType, attachment_target AttachmentTarget = attachment_target::color1>
-    std::optional<attachment<AttachmentType>>& get_attachment_optional()
+    template <attachment_target AttachmentTarget>
+    auto& get_attachment_optional()
     {
-      if constexpr (AttachmentType == attachment_type::depth) {
-        return m_depth_attachment;
-      } else {
         constexpr auto attachment_idx = uint32_t(AttachmentTarget);
         static_assert(attachment_idx < max_attachments);
-        return m_color_attachments.at(attachment_idx);
-      }
+        return m_attachments.at(attachment_idx);
     }
 
     uint32_t m_gl_handler {0};
     mutable int32_t m_bound_target {-1};
     uint32_t m_width {0};
     uint32_t m_height {0};
-    std::array<std::optional<attachment<attachment_type::color>>, max_attachments> m_color_attachments;
-    std::optional<attachment<attachment_type::depth>> m_depth_attachment;
+    std::array<std::optional<attachment>, max_attachments> m_attachments;
   };
 
 
@@ -291,10 +275,9 @@ namespace gl
   class pass
   {
   public:
-    pass(gl::framebuffer fb)
+    explicit pass(gl::framebuffer fb)
     : m_framebuffer(std::move(fb))
     {
-
     }
 
     ~pass() = default;

@@ -76,8 +76,6 @@ int main() {
 
       assert(glGetError() == GL_NO_ERROR);
 
-      glViewport(0, 0, 800, 600);
-
       auto porjection = glm::perspectiveFov(glm::radians(45.0f), 800.0f, 600.0f, 0.1f, 100.0f);
       glm::mat4 model = glm::mat4(1.0f);
       model = glm::translate(model, glm::vec3(0.0f, 0.0f, 25.0));
@@ -91,8 +89,8 @@ int main() {
       stbi_image_free(wood_texture_source);
 
       gl::framebuffer fb(800, 600);
-      fb.add_attachment<uint8_t, gl::framebuffer::attachment_target::color1>();
-      fb.add_attachment<float, gl::framebuffer::attachment_target::depth>();
+      fb.add_attachment<gl::framebuffer::attachment_target::color1, gl::attachment_type::color_rgba16f>();
+      fb.add_attachment<gl::framebuffer::attachment_target::depth, gl::attachment_type::depth_24f>();
       gl::pass pass{std::move(fb)};
 
       pass.set_state({
@@ -100,7 +98,7 @@ int main() {
         gl::depth_func::leq,
         true,
         {true, true, true, true},
-        gl::cull_func::off,
+        gl::cull_func::front,
         {0.2f, 0.3f, 0.3f, 1.0f}});
 
       auto mvp = porjection * camera * model;
