@@ -20,7 +20,6 @@ struct light_source
   glm::vec3 position;
 };
 
-
 static_assert(sizeof(light_source) == sizeof(glm::vec3) * 2);
 
 constexpr light_source light_sources[] {
@@ -57,6 +56,7 @@ int main() {
         cube_vao.add_vertex_array<float>(buf, 3,sizeof(float[8]), sizeof(float[3]));
         cube_vao.add_vertex_array<float>(buf, 2,sizeof(float[8]), sizeof(float[6]));
       }
+
 
       gl::program cube_program {
         gl::shader<GL_VERTEX_SHADER>{shaders::hdr_v_shader_source},
@@ -104,8 +104,16 @@ int main() {
         {0.2f, 0.3f, 0.3f, 1.0f}});
 
       auto mvp = porjection * camera * model;
+
+      glEnable(GL_DEPTH_TEST);
+
+      float anim_key = 0;
+
+      gl::texture<GL_TEXTURE_2D> animation_texture;
+
       while (!glfwWindowShouldClose(window)) {
         {
+
           gl::bind_guard pass_guard(pass);
 
           cube_vao.bind();
