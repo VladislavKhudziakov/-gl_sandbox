@@ -12,8 +12,9 @@ add_subdirectory(third/tinygltf)
 set(CMAKE_CXX_STANDARD 20)
 
 file(GLOB src "./*.cpp")
+file(GLOB gl_src "./gl/*.cpp")
 
 include_directories(${CMAKE_CURRENT_LIST_DIR})
-add_executable(gl_sandbox main.cpp ${src})
+add_executable(gl_sandbox main.cpp ${src} ${gl_src})
 
 target_link_libraries(gl_sandbox glm assimp glad glfw tinygltf)

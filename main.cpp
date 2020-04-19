@@ -5,6 +5,8 @@
 
 #include <gl_handlers.hpp>
 #include <gltf_handlers.hpp>
+#include <primitives.hpp>
+#include <shaders.hpp>
 
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
@@ -12,40 +14,21 @@
 
 #include <third/tinygltf/tiny_gltf.h>
 
-constexpr auto model_path = "../models/Dragon_2.5_For_Animations.glb";
+struct light_source
+{
+  glm::vec3 color;
+  glm::vec3 position;
+};
 
-const char* v_shader_source =
-"#version 410 core\n"
-"layout (location=0) in vec3 a_pos;"
-"layout (location=1) in vec3 a_normal;"
-"layout (location=2) in vec4 a_joints;"
-"layout (location=3) in vec4 a_weights;"
-"uniform mat4 u_proj;"
-"uniform mat4 u_view;"
-"uniform mat4 u_world;"
-"uniform mat4 u_bones[166];"
-"out vec3 v_normal;"
-"void main() {"
-"v_normal = a_normal;"
-"gl_Position = u_proj * u_view *"
-"(a_weights.x * u_bones[int(a_joints.x)] + "
-"a_weights.y * u_bones[int(a_joints.y)] + "
-"a_weights.z * u_bones[int(a_joints.z)] + "
-"a_weights.w * u_bones[int(a_joints.w)]) *"
-"vec4(a_pos, 1.0);"
-"}";
 
-const char* f_shader_source =
-"#version 410 core\n"
-"precision highp float;"
-"layout (location=0) out vec4 frag_color;"
-"in vec3 v_normal;"
-"uniform vec3 u_color;"
-"void main() {"
-"vec3 light_pos = normalize(vec3(-1, 3, 5));"
-"float l = dot(light_pos, normalize(v_normal)) * 0.5 + 0.5;"
-"frag_color = vec4(l * u_color, 1.0);"
-"}";
+static_assert(sizeof(light_source) == sizeof(glm::vec3) * 2);
+
+constexpr light_source light_sources[] {
+    {{200.0f, 200.0f, 200.0f}, {0.0f,  0.0f, 49.5f}},
+    {{100.f, 100.0f, 100.0f}, {-1.4f, -1.9f, 9.0f}},
+    {{0.0f, 0.0f, 0.2f}, {0.0f, -1.8f, 4.0f}},
+    {{0.0f, 0.1f, 0.0f}, {0.8f, -1.7f, 6.0f}},
+};
 
 
 int main() {
@@ -64,87 +47,85 @@ int main() {
         std::cout << "Failed to initialize GLAD" << std::endl;
         return -1;
     }
-
     {
-      tinygltf::Model mdl{};
-      std::string err;
-      std::string warn;
+      gl::vertex_array_object cube_vao;
+      {
+        gl::buffer<GL_ARRAY_BUFFER> buf;
+        buf.fill(primitives::cube_vertices, sizeof(primitives::cube_vertices));
+        auto s = sizeof(primitives::cube_vertices);
+        cube_vao.add_vertex_array<float>(buf, 3,sizeof(float[8]));
+        cube_vao.add_vertex_array<float>(buf, 3,sizeof(float[8]), sizeof(float[3]));
+        cube_vao.add_vertex_array<float>(buf, 2,sizeof(float[8]), sizeof(float[6]));
+      }
 
-      tinygltf::TinyGLTF loader{};
-      auto success = loader.LoadBinaryFromFile(&mdl, &err, &warn, model_path);
+      gl::program cube_program {
+        gl::shader<GL_VERTEX_SHADER>{shaders::hdr_v_shader_source},
+        gl::shader<GL_FRAGMENT_SHADER>{shaders::hdr_f_shader_source}};
 
-      std::vector<gltf::mesh> meshes;
-      auto h = gltf::make_graph(mdl, meshes);
-      auto skins = gltf::get_skins(mdl, h);
-      auto anims = gltf::get_animations(mdl, h);
+      gl::vertex_array_object plane_vao;
+      {
+        gl::buffer<GL_ARRAY_BUFFER> buf;
+        buf.fill(primitives::plane_vertices, sizeof(primitives::plane_vertices));
+        cube_vao.add_vertex_array<float>(buf, 3,sizeof(float[3]));
+        cube_vao.add_vertex_array<float>(buf, 2,sizeof(float[2]), sizeof(float[3]) * 4);
+        cube_vao.add_vertex_array<float>(buf, 3,sizeof(float[3]), sizeof(float[3]) * 4 + sizeof(float[2]) * 4);
+      }
 
-      auto perspective = glm::perspective(glm::radians(60.0f), 800.0f / 600.0f, 1.0f, 2000.0f);
+      gl::buffer<GL_ELEMENT_ARRAY_BUFFER> plane_ebo;
+      plane_ebo.fill(primitives::plane_indices, sizeof(primitives::plane_indices));
 
-      gl::program program {
-          gl::shader<GL_VERTEX_SHADER>(v_shader_source),
-          gl::shader<GL_FRAGMENT_SHADER>(f_shader_source)
-      };
+      assert(glGetError() == GL_NO_ERROR);
 
       glViewport(0, 0, 800, 600);
 
-      glEnable(GL_DEPTH_TEST);
+      auto porjection = glm::perspectiveFov(glm::radians(45.0f), 800.0f, 600.0f, 0.1f, 100.0f);
+      glm::mat4 model = glm::mat4(1.0f);
+      model = glm::translate(model, glm::vec3(0.0f, 0.0f, 25.0));
+      model = glm::scale(model, glm::vec3(2.5f, 2.5f, 27.5f));
+      auto camera = glm::lookAt(glm::vec3{2.0f, 0.0f, 25.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f});
 
-      float anim_key = 0;
+      int32_t w, h, c;
+      auto wood_texture_source = stbi_load("../models/wood.png", &w, &h, &c, 0);
+      gl::texture<GL_TEXTURE_2D> wood_texture;
+      wood_texture.fill<uint8_t>(wood_texture_source, w, h, c == 3, false);
+      stbi_image_free(wood_texture_source);
 
+      gl::framebuffer fb(800, 600);
+      fb.add_attachment<uint8_t, gl::framebuffer::attachment_target::color1>();
+      fb.add_attachment<float, gl::framebuffer::attachment_target::depth>();
+      gl::pass pass{std::move(fb)};
+
+      pass.set_state({
+        true,
+        gl::depth_func::leq,
+        true,
+        {true, true, true, true},
+        gl::cull_func::off,
+        {0.2f, 0.3f, 0.3f, 1.0f}});
+
+      auto mvp = porjection * camera * model;
       while (!glfwWindowShouldClose(window)) {
-        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
         {
-          auto time = glfwGetTime();
-          glm::vec3 camera_position {cos(time * .1) * 100, 30, sin(time * .1) * 100};
-          const auto target = glm::vec3{0, 0, -10};
-          const auto up = glm::vec3{0, 1, 0};
+          gl::bind_guard pass_guard(pass);
 
-          auto view = glm::lookAt(camera_position, target, up);
+          cube_vao.bind();
+          cube_program.bind();
+          wood_texture.bind();
+          cube_program.set_uniform("projection", porjection);
+          cube_program.set_uniform("view", camera);
+          cube_program.set_uniform("model", model);
+          cube_program.set_uniform("diffuseTexture", 0);
 
-          gl::bind_guard program_g(program);
-
-          for (const auto& mesh : meshes) {
-            gl::bind_guard vao_g(mesh.vao);
-            gl::bind_guard ind_g(mesh.indices);
-            program.set_uniform("u_color", glm::vec3{0, 1, 1});
-            program.set_uniform("u_proj", perspective);
-            program.set_uniform("u_view", view);
-            program.set_uniform("u_world", mesh.world_transform);
-
-            for (size_t j = 0; j < anims[0].nodes.size(); ++j) {
-              if (!anims[0].anim_keys[j].translation.empty()) {
-                anims[0].nodes[j]->set_translation(anims[0].anim_keys[j].translation[uint32_t(anim_key) % anims[0].anim_keys[j].translation.size()]);
-              }
-
-              if (!anims[0].anim_keys[j].scale.empty()) {
-                anims[0].nodes[j]->set_scale(anims[0].anim_keys[j].scale[uint32_t(anim_key) % anims[0].anim_keys[j].translation.size()]);
-              }
-
-              if (!anims[0].anim_keys[j].rotation.empty()) {
-                anims[0].nodes[j]->set_rotation(anims[0].anim_keys[j].rotation[uint32_t(anim_key) % anims[0].anim_keys[j].rotation.size()]);
-              }
-
-
-            }
-
-            h->update_graph();
-
-            std::vector<glm::mat4> bones;
-            bones.reserve(skins[mesh.skin_idx].nodes.size());
-
-            for (size_t i = 0; i < skins[mesh.skin_idx].nodes.size(); ++i) {
-              bones.push_back(skins[mesh.skin_idx].nodes[i]->get_world_matrix() * skins[mesh.skin_idx].inv_bind_poses[i]);
-            }
-
-            program.set_uniform("u_bones", bones.data(), bones.size());
-
-            glDrawElements(GL_TRIANGLES, mesh.indices_count, GL_UNSIGNED_SHORT, nullptr);
-
-            anim_key += 0.3;
+          for (int i = 0; i < 4; ++i) {
+            cube_program.set_uniform("lights[" + std::to_string(i) + "].Position", light_sources[i].position);
+            cube_program.set_uniform("lights[" + std::to_string(i) + "].Color", light_sources[i].color);
           }
+          glDrawArrays(GL_TRIANGLES, 0, 36);
         }
+
+        int32_t window_fb_width, window_fb_height;
+        glfwGetFramebufferSize(window, &window_fb_width, &window_fb_height);
+        pass.get_framebuffer().blit(window_fb_width, window_fb_height);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
