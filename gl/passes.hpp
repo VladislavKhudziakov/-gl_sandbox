@@ -13,6 +13,7 @@
 #include <array>
 #include <optional>
 #include <variant>
+#include <vector>
 
 namespace gl
 {
@@ -31,49 +32,58 @@ namespace gl
     front, back, off
   };
 
+  enum class blend_func
+  {
+    alpha, add, multiply, off
+  };
+
+  struct gpu_state
+  {
+    bool color_write[4] {true, true, true, true};
+    depth_func depth_func = depth_func::leq;
+    bool depth_test {false};
+    bool depth_write {false};
+    cull_func culling = cull_func::off;
+    blend_func blend = blend_func::off;
+  };
+
+  enum class pass_behaviour
+  {
+    clear, save
+  };
+
   class attachment
   {
   public:
-    explicit attachment(attachment_type type) : m_type(type) { };
+    explicit attachment(attachment_type type);
     ~attachment() = default;
 
-    attachment(attachment&& src) noexcept {
-      *this = std::move(src);
-    }
+    attachment(attachment&& src) noexcept;
 
-    attachment&operator=(attachment&& src) noexcept
-    {
-      if (this != &src) {
-        m_texture_handler = std::move(src.m_texture_handler);
-        m_type = src.m_type;
-      }
+    attachment&operator=(attachment&& src) noexcept;
 
-      return *this;
-    }
+    void resize(uint32_t w, uint32_t h);
 
-    void resize(uint32_t w, uint32_t h)
-    {
-      m_texture_handler.fill<attachment>(nullptr, w, h, m_type);
-    }
+    texture<GL_TEXTURE_2D>& get_handler();
 
-    texture<GL_TEXTURE_2D>& get_handler()
-    {
-      return m_texture_handler;
-    }
+    const texture<GL_TEXTURE_2D>& get_handler() const;
 
-    const texture<GL_TEXTURE_2D>& get_handler() const
-    {
-      return m_texture_handler;
-    }
+    operator uint32_t () const;
 
-    operator uint32_t () const
-    {
-      return m_texture_handler;
-    }
+    attachment_type get_type() const;
 
+    void set_start_pass_behaviour(pass_behaviour);
+    void set_end_pass_behaviour(pass_behaviour);
+    void set_clear_values(float values[4]);
+    pass_behaviour get_start_pass_behaviour() const;
+    pass_behaviour get_finish_pass_behaviour() const;
+    const float* get_clear_values() const;
   private:
     texture<GL_TEXTURE_2D> m_texture_handler;
     attachment_type m_type;
+    pass_behaviour m_start_behaviour = pass_behaviour::clear;
+    pass_behaviour m_finish_behaviour = pass_behaviour::save;
+    float m_clear_values[4] {1, 1, 1, 1};
   };
 
   template<> struct texture_fill_resolver<attachment, GL_TEXTURE_2D>
@@ -108,99 +118,25 @@ namespace gl
 
     inline constexpr static uint32_t max_attachments = 5;
 
-    framebuffer(uint32_t w, uint32_t h)
-    : m_width(w)
-    , m_height(h)
-    {
-      glGenFramebuffers(1, &m_gl_handler);
-    }
+    framebuffer(uint32_t w, uint32_t h);
 
     framebuffer(const framebuffer&) = delete;
     framebuffer&operator=(const framebuffer&) = delete;
 
-    framebuffer(framebuffer&& src) noexcept
-    {
-      *this = std::move(src);
-    }
+    framebuffer(framebuffer&& src) noexcept;
 
-    framebuffer&operator=(framebuffer&& src) noexcept
-    {
-      if (this != &src) {
-        m_width = src.m_width;
-        m_height = src.m_height;
-        m_bound_target = src.m_bound_target;
+    framebuffer&operator=(framebuffer&& src) noexcept;
 
-        for (int i = 0; i < max_attachments; ++i) {
-          if (src.m_attachments.at(i) != std::nullopt) {
-            m_attachments[i].emplace(std::move(*src.m_attachments.at(i)));
-          }
-        }
+    ~framebuffer();
 
-        std::swap(m_gl_handler, src.m_gl_handler);
-      }
+    void bind(int32_t bind_target) const;
 
-      return *this;
-    }
+    void resize(uint32_t w, uint32_t h);
 
-    ~framebuffer()
-    {
-      glDeleteFramebuffers(1, &m_gl_handler);
-    }
+    void unbind() const;
 
-    void bind(int32_t bind_target) const
-    {
-      assert(bind_target == GL_DRAW_FRAMEBUFFER || bind_target == GL_READ_FRAMEBUFFER || bind_target == GL_FRAMEBUFFER);
-      assert(glCheckFramebufferStatus(bind_target) == GL_FRAMEBUFFER_COMPLETE);
-      glViewport(0, 0, m_width, m_height);
-      glBindFramebuffer(bind_target, m_gl_handler);
-      m_bound_target = bind_target;
-    }
-
-    void resize(uint32_t w, uint32_t h)
-    {
-      m_width = w;
-      m_height = h;
-      int32_t curr_binding;
-      glGetIntegerv(GL_FRAMEBUFFER, &curr_binding);
-      {
-        bind_guard guard {*this, GL_FRAMEBUFFER};
-        for (auto& attachment : m_attachments) {
-
-          if (attachment == std::nullopt) {
-            continue;
-          }
-
-          attachment->resize(w, h);
-        }
-      }
-      glBindFramebuffer(GL_FRAMEBUFFER, curr_binding);
-    }
-
-    void unbind() const
-    {
-      glBindFramebuffer(m_bound_target, 0);
-      m_bound_target = -1;
-    }
-
-    void blit(uint32_t dst_width, uint32_t dst_height)
-    {
-      int32_t read_fb, draw_fb;
-
-      glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &read_fb);
-      glGetIntegerv(GL_DRAW_FRAMEBUFFER, &draw_fb);
-
-      {
-        bind_guard guard {*this, GL_READ_FRAMEBUFFER};
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-        int32_t viewport[4];
-        glGetIntegerv( GL_VIEWPORT, viewport );
-
-        glBlitFramebuffer(0, 0, m_width, m_height, 0, 0, dst_width, dst_height, GL_COLOR_BUFFER_BIT, GL_LINEAR);
-      }
-
-      glBindFramebuffer(GL_READ_FRAMEBUFFER, read_fb);
-      glBindFramebuffer(GL_DRAW_FRAMEBUFFER, draw_fb);
-    }
+    void blit(uint32_t dst_width, uint32_t dst_height);
+    void blit(const framebuffer& dst);
 
     template <attachment_target AttachmentTarget, attachment_type AttachmentType>
     void add_attachment()
@@ -218,21 +154,17 @@ namespace gl
         static_assert(AttachmentType == attachment_type::color_rgba8u || AttachmentType == attachment_type::color_rgba16f);
         auto attachment_idx = uint32_t(AttachmentTarget);
         glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + attachment_idx, GL_TEXTURE_2D, *(attachment), 0);
+        auto drawbufs = get_drawbuffers();
+        glDrawBuffers(drawbufs.size(), drawbufs.data());
       }
     }
 
     template <attachment_target AttachmentTarget>
     auto& get_attachment()
     {
-      if constexpr (AttachmentTarget == attachment_target::depth) {
-        auto& a = get_attachment_optional<attachment_type::depth_24f, AttachmentTarget>();
-        assert(a != std::nullopt);
-        return *a;
-      } else {
-        auto& a = get_attachment_optional<attachment_type::color_rgba8u, AttachmentTarget>();
-        assert(a != std::nullopt);
-        return *a;
-      }
+      auto& a = get_attachment_optional<AttachmentTarget>();
+      assert(a != std::nullopt);
+      return *a;
     }
 
     template <attachment_target AttachmentTarget>
@@ -243,6 +175,8 @@ namespace gl
         return *a;
     }
 
+    std::pair<uint32_t, uint32_t> get_screen_size() const;
+
   private:
     template <attachment_target AttachmentTarget>
     auto& get_attachment_optional()
@@ -252,6 +186,31 @@ namespace gl
         return m_attachments.at(attachment_idx);
     }
 
+    template <typename Callable>
+    void clear(Callable&& f) const
+    {
+      for (size_t i = 0; i < m_attachments.size(); ++i) {
+        const auto& attachment = m_attachments[i];
+        if (attachment != std::nullopt && f(*attachment) == gl::pass_behaviour::clear) {
+          switch (attachment->get_type()) {
+          case attachment_type::color_rgba8u:
+            [[fallthrough]];
+          case attachment_type::color_rgba16f:
+            glClearBufferfv(GL_COLOR, i, attachment->get_clear_values());
+            break;
+          case attachment_type::depth_24f:
+            glClearBufferfv(GL_DEPTH, 0, attachment->get_clear_values());
+            break;
+          }
+        }
+      }
+    }
+
+    std::vector<GLenum> get_drawbuffers();
+
+    static void blit(
+        uint32_t from_handler, uint32_t dst_handler, uint32_t from_width, uint32_t from_height, uint32_t dst_width, uint32_t dst_height);
+
     uint32_t m_gl_handler {0};
     mutable int32_t m_bound_target {-1};
     uint32_t m_width {0};
@@ -260,107 +219,28 @@ namespace gl
   };
 
 
-  struct gpu_state
-  {
-    bool depth_test {false};
-    depth_func depth_func = depth_func::leq;
-    bool depth_write {false};
-    bool color_write[4] {true, true, true, true};
-    cull_func culling = cull_func::off;
-    float clear_color[4] {0, 0, 0, 1};
-    float clear_depth[4] {1, 1, 1, 1};
-  };
-
-
   class pass
   {
   public:
-    explicit pass(gl::framebuffer fb)
-    : m_framebuffer(std::move(fb))
-    {
-    }
+    explicit pass(gl::framebuffer fb);
+    pass(pass&&) = default;
+    pass& operator=(pass&&) = default;
 
     ~pass() = default;
 
-    void bind() const
-    {
-      m_framebuffer.bind(GL_DRAW_FRAMEBUFFER);
+    void bind() const;
 
-      if (m_state.depth_test) {
-        glEnable(GL_DEPTH_TEST);
-        glClearBufferfv(GL_DEPTH, 0, m_state.clear_depth);
-        glDepthMask(m_state.depth_write ? GL_TRUE : GL_FALSE);
-        switch (m_state.depth_func) {
-        case depth_func::less:
-          glDepthFunc(GL_LESS);
-          break;
-        case depth_func::leq:
-          glDepthFunc(GL_LEQUAL);
-          break;
-        case depth_func::eq:
-          glDepthFunc(GL_EQUAL);
-          break;
-        }
-      }
+    void unbind() const;
 
-      glColorMask(
-          m_state.color_write[0] ? GL_TRUE : GL_FALSE,
-          m_state.color_write[1] ? GL_TRUE : GL_FALSE,
-          m_state.color_write[2] ? GL_TRUE : GL_FALSE,
-          m_state.color_write[3] ? GL_TRUE : GL_FALSE);
+    void set_state(const gpu_state& new_state) const;
 
-      for (int i = 0; i < framebuffer::max_attachments; ++i) {
-        glClearBufferfv(GL_COLOR, i, m_state.clear_color);
-      }
+    framebuffer& get_framebuffer();
 
-      switch (m_state.culling) {
-      case cull_func::front:
-        glEnable(GL_CULL_FACE);
-        glCullFace(GL_FRONT);
-        break;
-      case cull_func::back:
-        glEnable(GL_CULL_FACE);
-        glCullFace(GL_BACK);
-        break;
-      case cull_func::off:
-        glDisable(GL_CULL_FACE);
-        break;
-      }
-    }
-
-    void unbind() const
-    {
-      m_framebuffer.unbind();
-      reset();
-    }
-
-    void set_state(const gpu_state& new_state)
-    {
-      m_state = new_state;
-    }
-
-    framebuffer& get_framebuffer()
-    {
-      return m_framebuffer;
-    }
-
-    const framebuffer& get_framebuffer() const
-    {
-      return m_framebuffer;
-    }
+    const framebuffer& get_framebuffer() const;
 
   private:
-    void reset() const
-    {
-      glDisable(GL_DEPTH_TEST);
-      glDepthMask(GL_TRUE);
-      glDepthFunc(GL_LESS);
-      glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-      glCullFace(GL_BACK);
-      glDisable(GL_CULL_FACE);
-    }
+    void reset() const;
 
     framebuffer m_framebuffer;
-    gpu_state m_state {};
   };
 }

@@ -22,25 +22,25 @@ namespace gl
       int32_t texture_data_type = -1;
 
       if (channels != 4) {
-        glTexParameteri(GL_TEXTURE_2D, GL_UNPACK_ALIGNMENT, 1);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
       }
 
       switch (channels) {
         case 1:
           texture_storage_type = is_f16 ? GL_R16F : GL_R32F;
-          texture_data_type = GL_R32F;
+          texture_data_type = GL_R;
           break;
         case 2:
           texture_storage_type = is_f16 ? GL_RG16F : GL_RG32F;
-          texture_data_type = GL_RG32F;
+          texture_data_type = GL_RG;
           break;
         case 3:
           texture_storage_type = is_f16 ? GL_RGB16F : GL_RGB32F;
-          texture_data_type = GL_RGB32F;
+          texture_data_type = GL_RGB;
           break;
         case 4:
           texture_storage_type = is_f16 ? GL_RGBA16F : GL_RGBA32F;
-          texture_data_type = GL_RGBA32F;
+          texture_data_type = GL_RGBA;
           break;
         default:
           throw std::runtime_error("invalid channels count");
@@ -49,7 +49,7 @@ namespace gl
       glTexImage2D(GL_TEXTURE_2D, 0, texture_storage_type, w, h, 0, texture_data_type, GL_FLOAT, data);
 
       if (channels != 4) {
-        glTexParameteri(GL_TEXTURE_2D, GL_UNPACK_ALIGNMENT, 4);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
       }
 
       if (gen_mips) {
@@ -60,20 +60,44 @@ namespace gl
 
   template<> struct texture_fill_resolver<uint8_t, GL_TEXTURE_2D>
   {
-    void operator()(void* data, int32_t w, int32_t h, bool rgb = false, bool gen_mips = false)
+    void operator()(void* data, int32_t w, int32_t h, uint32_t channels, bool gen_mips = false)
     {
-      if (rgb) {
-        glTexParameteri(GL_TEXTURE_2D, GL_UNPACK_ALIGNMENT, 1);
+      int32_t texture_storage_type = -1;
+      int32_t texture_data_type = -1;
+
+      if (channels != 4) {
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
       }
 
-      glTexImage2D(GL_TEXTURE_2D, 0, rgb ? GL_RGB8 : GL_RGBA8, w, h, 0, rgb ? GL_RGB : GL_RGBA, GL_UNSIGNED_BYTE, data);
+      switch (channels) {
+      case 1:
+        texture_storage_type = GL_R8;
+        texture_data_type = GL_R;
+        break;
+      case 2:
+        texture_storage_type = GL_RG8;
+        texture_data_type = GL_RG;
+        break;
+      case 3:
+        texture_storage_type = GL_RGB8;
+        texture_data_type = GL_RGB;
+        break;
+      case 4:
+        texture_storage_type = GL_RGBA8;
+        texture_data_type = GL_RGBA;
+        break;
+      default:
+        throw std::runtime_error("invalid channels count");
+      }
+
+      glTexImage2D(GL_TEXTURE_2D, 0, texture_storage_type, w, h, 0, texture_data_type, GL_UNSIGNED_BYTE, data);
 
       if (gen_mips) {
         glGenerateMipmap(GL_TEXTURE_2D);
       }
 
-      if (rgb) {
-        glTexParameteri(GL_TEXTURE_2D, GL_UNPACK_ALIGNMENT, 4);
+      if (channels != 4) {
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
       }
     }
   };

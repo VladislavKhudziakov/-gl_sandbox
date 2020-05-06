@@ -24,11 +24,10 @@ namespace gl
 
     ~vertex_array_object();
 
-    template <typename DataType>
     void add_vertex_array(
         const buffer<GL_ARRAY_BUFFER>& buf,
         uint32_t elements_count,
-        uint32_t stride = sizeof(DataType),
+        uint32_t stride,
         uint32_t offset = 0,
         uint32_t type = GL_FLOAT,
         uint32_t normalized = GL_FALSE)

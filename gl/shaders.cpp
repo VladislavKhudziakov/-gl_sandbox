@@ -2,6 +2,15 @@
 
 #include "shaders.hpp"
 
+gl::program::program(
+        const gl::shader<GL_VERTEX_SHADER> &vs,
+        const gl::shader<GL_FRAGMENT_SHADER> &fs,
+        const gl::shader<GL_GEOMETRY_SHADER> &gs)
+: program(vs, fs)
+{
+    glAttachShader(m_gl_handler, gs.m_gl_handler);
+}
+
 
 gl::program::program(const gl::shader<GL_VERTEX_SHADER> &vs, const gl::shader<GL_FRAGMENT_SHADER> &fs)
   : m_gl_handler{glCreateProgram()}

@@ -24,6 +24,15 @@ namespace gl {
     }
   };
 
+template<> class uniform_resolver<float>
+{
+public:
+  void operator()(uint32_t location, float v)
+  {
+    glUniform1fv(location, 1, &v);
+  }
+};
+
   template<> class uniform_resolver<glm::mat4*>
   {
   public:
@@ -39,6 +48,15 @@ namespace gl {
     void operator()(uint32_t location, const glm::vec3& v, size_t count = 1)
     {
       glUniform3fv(location, count, glm::value_ptr(v));
+    }
+  };
+
+  template<> class uniform_resolver<glm::vec2>
+  {
+  public:
+    void operator()(uint32_t location, const glm::vec2& v, size_t count = 1)
+    {
+      glUniform2fv(location, count, glm::value_ptr(v));
     }
   };
 
@@ -105,8 +123,8 @@ namespace gl {
 
   class program {
   public:
-    program(const shader<GL_VERTEX_SHADER> &vs, const shader<GL_FRAGMENT_SHADER> &fs);
-
+    program(const shader<GL_VERTEX_SHADER> &vs, const shader<GL_FRAGMENT_SHADER>& fs);
+    program(const shader<GL_VERTEX_SHADER> &vs, const shader<GL_FRAGMENT_SHADER>& fs,  const shader<GL_GEOMETRY_SHADER>& gs);
     ~program();
 
     program(const program &) = delete;
@@ -120,7 +138,7 @@ namespace gl {
     void unbind() const;
 
     template <typename UniformType, typename... Args>
-    void set_uniform(const std::string &uniform_name, const UniformType &uniform_data, Args&&... args)
+    void set_uniform(const std::string &uniform_name, const UniformType &uniform_data, Args&&... args) const
   {
       auto loc = glGetUniformLocation(m_gl_handler, uniform_name.c_str());
 

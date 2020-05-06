@@ -60,7 +60,7 @@ namespace gl
     {
       bind_guard guard(*this);
       uint32_t usage = type == usage_type::static_usage ? GL_STATIC_DRAW : GL_DYNAMIC_DRAW;
-      glBufferData(GlBufferType, data_size, data, GL_STATIC_DRAW);
+      glBufferData(GlBufferType, data_size, data, usage);
     }
 
   private:
