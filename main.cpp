@@ -31,7 +31,7 @@ constexpr uint32_t rows_count = 7;
 constexpr uint32_t columns_count = 7;
 constexpr float spacing = 2.5;
 
-void process_camera(GLFWwindow* window, scene::scene& s)
+void process_camera(GLFWwindow* window, gl::scene::scene& s)
 {
   static bool is_first = true;
 
@@ -97,18 +97,17 @@ int main() {
         return -1;
     }
     {
-      auto scene = gltf::load_scene("../models/inquisitors_helmet/scene.gltf", "../models/hdr/newport_loft.hdr");
+      auto scene = gltf::load_scene("/Users/vladislavkhudiakov/Downloads/scifi_drone_1.1/scene.gltf", "/Users/vladislavkhudiakov/Documents/dev/gl_sandbox/models/hdr/newport_loft.hdr");
 
       while (!glfwWindowShouldClose(window)) {
         {
           process_camera(window, scene);
           scene.camera.position = view_pos;
           scene.camera.forward = view_pos + camera_dir;
-          scene::draw(scene, {0, 1}, 0);
+          gl::scene::draw(scene, {0, 1}, 0);
           int32_t window_fb_width, window_fb_height;
           glfwGetFramebufferSize(window, &window_fb_width, &window_fb_height);
-          scene.passes.front().get_framebuffer().blit(window_fb_width, window_fb_height);
-
+          scene.framebuffers.at(scene.passes.front().get_framebuffer_idx()).blit(window_fb_width, window_fb_height);
           glfwSwapBuffers(window);
           glfwPollEvents();
         }

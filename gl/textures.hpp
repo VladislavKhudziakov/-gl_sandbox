@@ -106,7 +106,7 @@ namespace gl
   class texture
   {
   public:
-    explicit texture(int32_t filter_type = GL_NEAREST, int32_t wrap = GL_CLAMP_TO_EDGE)
+    explicit texture(int32_t filter_type = GL_LINEAR, int32_t wrap = GL_CLAMP_TO_EDGE)
     {
       glGenTextures(1, &m_gl_handler);
 
@@ -159,7 +159,7 @@ namespace gl
     }
 
     template <typename DataType, typename ...Args>
-    void fill(void* data, int32_t w, int32_t h, Args&& ...args)
+    void fill(void* data, int32_t w, int32_t h, Args&& ...args) const
     {
       bind_guard guard(*this);
       texture_fill_resolver<DataType, TextureType>{}(data, w, h, std::forward<Args>(args)...);

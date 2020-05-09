@@ -6,13 +6,14 @@
 
 #include <iostream>
 
-void scene::draw(
-    const ::scene::scene &s,
+void gl::scene::draw(
+    const gl::scene::scene &s,
     const std::vector<uint32_t>& nodes,
     uint32_t pass_idx)
 {
   const auto& pass = s.passes.at(pass_idx);
-  const auto [w, h] = pass.get_framebuffer().get_screen_size();
+  const auto& framebuffer = s.framebuffers.at(pass.get_framebuffer_idx());
+  const auto [w, h] = framebuffer.get_size();
 
   auto projection = glm::perspectiveFov(s.camera.fov, float(w), float(h), s.camera.near, s.camera.far);
 
@@ -40,8 +41,8 @@ void scene::draw(
       std::visit([&sampler_name, &slot, &shader](auto& t) {
         t.bind(slot);
         shader.set_uniform(sampler_name, slot);
-        ++slot;
       }, s.textures.at(s_idx));
+      ++slot;
     }
 
     auto translation = glm::translate(glm::mat4{1}, n.transformation.translation);

@@ -4,10 +4,10 @@
 
 #include <unordered_map>
 
+#include <gl/scene/material.hpp>
 #include <gl_handlers.hpp>
-#include <scene/material.hpp>
 
-namespace scene
+namespace gl::scene
 {
   class mesh
   {

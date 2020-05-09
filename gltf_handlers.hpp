@@ -11,10 +11,10 @@
 
 #include <gl_handlers.hpp>
 
-#include <scene/scene.hpp>
+#include <gl/scene/scene.hpp>
 
 namespace gltf
 {
-  scene::scene load_scene(const std::string&, const std::string&);
+  gl::scene::scene load_scene(const std::string&, const std::string&);
 }
 

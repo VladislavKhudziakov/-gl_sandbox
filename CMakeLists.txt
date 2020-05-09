@@ -13,7 +13,7 @@ set(CMAKE_CXX_STANDARD 20)
 
 file(GLOB src "./*.cpp")
 file(GLOB gl_src "./gl/*.cpp")
-file(GLOB scene_src "./scene/*.cpp")
+file(GLOB scene_src "gl/scene/*.cpp")
 
 include_directories(${CMAKE_CURRENT_LIST_DIR})
 add_executable(gl_sandbox main.cpp ${src} ${gl_src} ${scene_src})

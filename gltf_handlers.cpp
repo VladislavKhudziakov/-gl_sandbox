@@ -254,9 +254,9 @@ namespace gltf
     return d_accessor.count;
   }
 
-  void load_meshes(const tinygltf::Model& mdl, const std::shared_ptr<scene_node>& root /*, const std::vector<animation>& anim */, scene::scene& s)
+  void load_meshes(const tinygltf::Model& mdl, const std::shared_ptr<scene_node>& root /*, const std::vector<animation>& anim */, gl::scene::scene& s)
   {
-    auto add_tex = [&s](gl::texture<GL_TEXTURE_2D>& t, scene::material& m, const std::string& s_name) {
+    auto add_tex = [&s](gl::texture<GL_TEXTURE_2D>& t, gl::scene::material& m, const std::string& s_name) {
       s.textures.emplace_back(std::move(t));
       m.add_texture(s_name, s.textures.size() - 1);
     };
@@ -313,10 +313,9 @@ namespace gltf
 
           m.set_state({
               {true, true, true, true},
-              gl::depth_func::leq,
               true,
-              true,
-              gl::cull_func::back,
+              gl::scene::depth_func::leq,
+              gl::scene::cull_func::back,
           });
 
           s.vertex_sources.emplace_back(std::move(vao));
@@ -331,7 +330,7 @@ namespace gltf
   }
 }
 
-scene::scene gltf::load_scene(const std::string& file_name, const std::string& env_tex_name)
+gl::scene::scene gltf::load_scene(const std::string& file_name, const std::string& env_tex_name)
 {
   tinygltf::Model mdl;
   tinygltf::TinyGLTF loader;
@@ -339,9 +338,9 @@ scene::scene gltf::load_scene(const std::string& file_name, const std::string& e
   std::string err_msg;
   std::string warn_msg;
 
-  scene::scene s;
+  gl::scene::scene s;
 
-  s.camera.fov = glm::radians(60.f);
+  s.camera.fov = glm::radians(90.f);
   s.camera.near = 0.1;
   s.camera.far = 1000;
   s.camera.up = {0, 1, 0};
@@ -357,15 +356,22 @@ scene::scene gltf::load_scene(const std::string& file_name, const std::string& e
   s.textures.emplace_back(std::move(ibl_spec));
   s.textures.emplace_back(std::move(ibl_brdf));
 
-  gl::framebuffer fb(1600, 1200);
-  fb.add_attachment<gl::framebuffer::attachment_target::color1,
-      gl::attachment_type::color_rgba8u>();
-  float clear_values[] {0, 0, 0, 1};
-  fb.get_attachment<gl::framebuffer::attachment_target::color1>().set_clear_values(clear_values);
-  fb.add_attachment<gl::framebuffer::attachment_target::depth,
-      gl::attachment_type::depth_24f>();
+  s.textures.emplace_back(gl::texture<GL_TEXTURE_2D>{}); // color attachment texture
+  const auto color_attachment_idx = s.textures.size() - 1;
+  s.textures.emplace_back(gl::texture<GL_TEXTURE_2D>{}); // depth attachment texture
+  const auto depth_attachment_idx = s.textures.size() - 1;
 
-  s.passes.emplace_back(std::move(fb));
+  s.attachments.emplace_back(s, color_attachment_idx, gl::scene::attachment_type::rgba8);
+  s.attachments.emplace_back(s, depth_attachment_idx, gl::scene::attachment_type::depth24f);
+
+  s.fbos.emplace_back();
+
+  auto& fb = s.framebuffers.emplace_back(s, s.fbos.size() - 1, 800, 600);
+
+  fb.add_attachment(fb.color1, 0);
+  fb.add_attachment(fb.depth, 1);
+
+  s.passes.emplace_back(s, s.framebuffers.size() - 1);
 
   gl::vertex_array_object cube_vao;
   {
@@ -383,12 +389,12 @@ scene::scene gltf::load_scene(const std::string& file_name, const std::string& e
 
   auto& m = s.materials.emplace_back(1);
   m.add_texture("s_bg", 0);
+
   m.set_state({
     {true, true, true, true},
-    gl::depth_func::leq,
     true,
-    true,
-    gl::cull_func::off,
+    gl::scene::depth_func::leq,
+    gl::scene::cull_func::off,
   });
 
   s.vertex_sources.emplace_back(std::move(cube_vao));
