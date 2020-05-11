@@ -512,6 +512,8 @@ layout (location = 0) in vec3 attr_pos;
 layout (location = 1) in vec2 attr_uv;
 layout (location = 2) in vec3 attr_normal;
 layout (location = 3) in vec3 attr_tangent;
+layout (location = 4) in vec4 attr_bones;
+layout (location = 5) in vec4 attr_weights;
 
 
 out vec2 var_uv;
@@ -522,17 +524,42 @@ out vec3 var_b;
 
 uniform mat4 u_MVP;
 uniform mat4 u_MODEL;
+uniform sampler2D s_anim;
+
+mat4 get_anim_matrix(int bone_idx, int key)
+{
+  vec4 x = texelFetch(s_anim, ivec2(bone_idx, key), 0);
+  vec4 y = texelFetch(s_anim, ivec2(bone_idx + 1, key), 0);
+  vec4 z = texelFetch(s_anim, ivec2(bone_idx + 2, key), 0);
+  vec4 w = texelFetch(s_anim, ivec2(bone_idx + 3, key), 0);
+  return mat4(x, y, z, w);
+}
+
+mat4 get_anim_transform(int key)
+{
+  mat4 m1 = get_anim_matrix(int(attr_bones.x) * 4, key) * attr_weights.x;
+  mat4 m2 = get_anim_matrix(int(attr_bones.y) * 4, key) * attr_weights.y;
+  mat4 m3 = get_anim_matrix(int(attr_bones.z) * 4, key) * attr_weights.z;
+  mat4 m4 = get_anim_matrix(int(attr_bones.w) * 4, key) * attr_weights.w;
+
+  return m1 + m2 + m3 + m4;
+}
 
 void main()
 {
-  gl_Position = u_MVP * vec4(attr_pos, 1.);
-  var_n = vec3(u_MODEL * vec4(attr_normal, 0.));
+  mat4 anim_transform = get_anim_transform(0);
+  mat4 model_transform = u_MODEL * anim_transform;
 
-  var_t = vec3(u_MODEL * vec4(attr_tangent, 0.));
+  vec3 pos = vec3(anim_transform * vec4(attr_pos, 1.));
+
+  gl_Position = u_MVP * vec4(pos, 1.);
+  var_n = vec3(model_transform * vec4(attr_normal, 0.));
+
+  var_t = vec3(model_transform * vec4(attr_tangent, 0.));
   var_t = normalize(var_t - var_n * max(dot(var_n, var_t), 0.));
   var_b = cross(var_n, var_t);
 
-  var_v = vec3(u_MODEL * vec4(attr_pos, 1.));
+  var_v = vec3(model_transform * vec4(attr_pos, 1.));
   var_uv = attr_uv;
 }
 )";

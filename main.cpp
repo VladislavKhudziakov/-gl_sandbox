@@ -3,8 +3,8 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
-#include <gltf_handlers.hpp>
 #include <assimp_handlers.hpp>
+#include <gltf/gltf_handlers.hpp>
 
 #include <glm/gtx/euler_angles.hpp>
 
@@ -98,8 +98,9 @@ int main() {
     }
     {
       auto scene = gltf::load_scene("/Users/vladislavkhudiakov/Downloads/scifi_drone_1.1/scene.gltf", "/Users/vladislavkhudiakov/Documents/dev/gl_sandbox/models/hdr/newport_loft.hdr");
+//    auto scene = gltf::load_scene("../models/Dragon_2.5_For_Animations.glb", "/Users/vladislavkhudiakov/Documents/dev/gl_sandbox/models/hdr/newport_loft.hdr", true);
 
-      while (!glfwWindowShouldClose(window)) {
+    while (!glfwWindowShouldClose(window)) {
         {
           process_camera(window, scene);
           scene.camera.position = view_pos;

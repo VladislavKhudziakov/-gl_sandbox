@@ -15,6 +15,6 @@
 
 namespace gltf
 {
-  gl::scene::scene load_scene(const std::string&, const std::string&);
+  gl::scene::scene load_scene(const std::string&, const std::string&, bool is_glb = false);
 }
 

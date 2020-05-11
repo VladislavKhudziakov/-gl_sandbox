@@ -13,9 +13,11 @@ set(CMAKE_CXX_STANDARD 20)
 
 file(GLOB src "./*.cpp")
 file(GLOB gl_src "./gl/*.cpp")
-file(GLOB scene_src "gl/scene/*.cpp")
+file(GLOB scene_src "./gl/scene/*.cpp")
+file(GLOB gltf_src "./gltf/*.cpp")
+
 
 include_directories(${CMAKE_CURRENT_LIST_DIR})
-add_executable(gl_sandbox main.cpp ${src} ${gl_src} ${scene_src})
+add_executable(gl_sandbox main.cpp ${src} ${gl_src} ${scene_src} ${gltf_src})
 
 target_link_libraries(gl_sandbox glm assimp glad glfw tinygltf)

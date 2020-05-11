@@ -16,7 +16,7 @@ namespace gl
 
   template<> struct texture_fill_resolver<float, GL_TEXTURE_2D>
   {
-    void operator()(void* data, int32_t w, int32_t h, uint32_t channels = 4, bool is_f16 = true, bool gen_mips = false)
+    void operator()(const float* data, int32_t w, int32_t h, uint32_t channels = 4, bool is_f16 = true, bool gen_mips = false) const
     {
       int32_t texture_storage_type = -1;
       int32_t texture_data_type = -1;
@@ -58,9 +58,9 @@ namespace gl
     }
   };
 
-  template<> struct texture_fill_resolver<uint8_t, GL_TEXTURE_2D>
+  template<> struct texture_fill_resolver<const uint8_t, GL_TEXTURE_2D>
   {
-    void operator()(void* data, int32_t w, int32_t h, uint32_t channels, bool gen_mips = false)
+    void operator()(const uint8_t* data, int32_t w, int32_t h, uint32_t channels, bool gen_mips = false) const
     {
       int32_t texture_storage_type = -1;
       int32_t texture_data_type = -1;
@@ -159,7 +159,7 @@ namespace gl
     }
 
     template <typename DataType, typename ...Args>
-    void fill(void* data, int32_t w, int32_t h, Args&& ...args) const
+    void fill(DataType* data, int32_t w, int32_t h, Args&& ...args) const
     {
       bind_guard guard(*this);
       texture_fill_resolver<DataType, TextureType>{}(data, w, h, std::forward<Args>(args)...);

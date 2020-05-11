@@ -86,7 +86,7 @@ gl::texture<GL_TEXTURE_2D> loader::load_tex_2d(const std::string& file_name)
     int32_t w, h, c;
     auto tex_src = stbi_load(file_name.c_str(), &w, &h, &c, 0);
     gl::texture<GL_TEXTURE_2D> texture;
-    texture.fill<uint8_t>(tex_src, w, h, c == 3, false);
+    texture.fill(reinterpret_cast<const uint8_t*>(tex_src), w, h, c == 3, false);
     stbi_image_free(tex_src);
     return texture;
 }
@@ -196,6 +196,7 @@ void main()
   }
 
   glDeleteFramebuffers(1, &fb);
+  stbi_image_free(data);
   return cube_tex;
 }
 

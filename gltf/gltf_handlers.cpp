@@ -1,9 +1,9 @@
 
 
-#include <gltf_handlers.hpp>
-#include <shaders.hpp>
 #include <assimp_handlers.hpp>
+#include <gltf/gltf_handlers.hpp>
 #include <primitives.hpp>
+#include <shaders.hpp>
 
 #include <glm/gtc/matrix_access.hpp>
 
@@ -18,6 +18,11 @@
 namespace gltf
 {
   class scene_node;
+
+  struct skin_anim
+  {
+    std::unordered_map<std::string, std::vector<glm::mat4>> animations;
+  };
 
   struct skin
   {
@@ -38,6 +43,7 @@ namespace gltf
     std::string name;
     std::vector<std::shared_ptr<scene_node>> nodes;
     std::vector<anim_keys> anim_keys;
+    size_t keys_size {0};
   };
 
   struct scene_node
@@ -193,6 +199,9 @@ namespace gltf
     container.reserve(data_accessor.count);
     for (size_t i = 0; i < data_accessor.count; ++i) {
       auto& curr_el = container.emplace_back();
+      const auto bytes_size = tinygltf::GetComponentSizeInBytes(data_accessor.componentType);
+      const auto components_count = tinygltf::GetNumComponentsInType(data_accessor.type);
+      assert(sizeof(curr_el) == bytes_size * components_count);
       std::memcpy(get_data_ptr(container.back()), data_ptr + data_accessor.byteOffset, sizeof(curr_el));
       data_ptr += data_b_view.byteStride;
     }
@@ -208,11 +217,10 @@ namespace gltf
       curr_skin.name = skin.name;
       curr_skin.nodes.reserve(skin.joints.size());
 
-      copy_buffer_data([](glm::mat4& data) {return glm::value_ptr(data); }, curr_skin.inv_bind_poses, mdl, skin.inverseBindMatrices);
+      copy_buffer_data([](glm::mat4& data) { return glm::value_ptr(data); }, curr_skin.inv_bind_poses, mdl, skin.inverseBindMatrices);
 
       for (auto joint : skin.joints) {
-        auto node = find_node_by_index(root, joint);
-        curr_skin.nodes.emplace_back(node);
+        curr_skin.nodes.emplace_back(find_node_by_index(root, joint));
       }
     }
     return skins;
@@ -244,11 +252,18 @@ namespace gltf
         }
 
         if (channel.target_path == "translation") {
-          copy_buffer_data([](glm::vec3& data) {return glm::value_ptr(data); }, curr_anim.anim_keys.at(idx).translation, mdl, sampler.output);
+          copy_buffer_data([](glm::vec3& data) { return glm::value_ptr(data); }, curr_anim.anim_keys.at(idx).translation, mdl, sampler.output);
         } else if (channel.target_path == "scale") {
-          copy_buffer_data([](glm::vec3& data) {return glm::value_ptr(data); }, curr_anim.anim_keys.at(idx).scale, mdl, sampler.output);
+          copy_buffer_data([](glm::vec3& data) { return glm::value_ptr(data); }, curr_anim.anim_keys.at(idx).scale, mdl, sampler.output);
         } else if (channel.target_path == "rotation") {
-          copy_buffer_data([](glm::quat& data) {return glm::value_ptr(data); }, curr_anim.anim_keys.at(idx).rotation, mdl, sampler.output);
+          copy_buffer_data([](glm::quat& data) { return glm::value_ptr(data); }, curr_anim.anim_keys.at(idx).rotation, mdl, sampler.output);
+        }
+
+        for (const auto& key : curr_anim.anim_keys) {
+          auto curr_size = key.translation.size();
+          curr_size = std::max(curr_size, key.scale.size());
+          curr_size = std::max(curr_size, key.rotation.size());
+          curr_anim.keys_size = std::max(curr_size, curr_anim.keys_size);
         }
       }
     }
@@ -256,43 +271,68 @@ namespace gltf
     return animations;
   }
 
-  void calculate_animations(std::vector<gltf::animation>& anims, std::vector<gltf::skin>& skins, std::shared_ptr<scene_node>& root)
+  std::vector<skin_anim> calculate_animations(std::vector<gltf::animation>& anims, std::vector<gltf::skin>& skins, std::shared_ptr<scene_node>& root)
   {
-    for (auto& skin : skins) {
-      for (const auto& anim : anims) {
-        auto keys_size = anim.anim_keys[0].translation.size();
-        keys_size = std::max(keys_size, anim.anim_keys[0].scale.size());
-        keys_size = std::max(keys_size, anim.anim_keys[0].rotation.size());
+    auto get_key_sampler = [](const auto& container, size_t key, auto value) {
+      return key < container.size() ? container[key] : value;
+    };
 
-        for (size_t key = 0; key < keys_size; ++key) {
-          for (size_t node = 0; node < anim.nodes.size(); ++node) {
-            auto& node_impl = anim.nodes[node];
-            const auto& node_key = anim.anim_keys[node];
+    std::vector<skin_anim> skin_anims(skins.size());
 
-            if (node_key.translation.size() > 0) {
-              node_impl->set_translation(node_key.translation[key]);
-            }
+    skin_anims.back().animations.emplace("skin", std::vector<glm::mat4>{});
 
-            if (node_key.scale.size() > 0) {
-              node_impl->set_translation(node_key.scale[key]);
-            }
+    for (size_t skin = 0; skin < skins.size(); ++skin) {
+      auto& skin_impl = skins[skin];
+      auto& anims_list = skin_anims[skin].animations.at("skin");
+      anims_list.reserve(anims_list.size() + skin_impl.nodes.size());
 
-            if (node_key.rotation.size() > 0) {
-              node_impl->set_rotation(node_key.rotation[key]);
-            }
+      for (size_t node = 0; node < skin_impl.nodes.size(); ++node) {
+        anims_list.emplace_back(skin_impl.nodes[node]->m_world_matrix * skin_impl.inv_bind_poses[node]);
+      }
+    }
+
+    std::sort(anims.begin(), anims.end(), [](const animation& l, const animation& r) {
+      return l.nodes.size() < r.nodes.size();
+    });
+
+    for (const auto& anim : anims) {
+      for (auto& curr_skin_anim : skin_anims) {
+        curr_skin_anim.animations.emplace(anim.name, std::vector<glm::mat4>{});
+      }
+
+      for (size_t key = 0; key < anim.keys_size; ++key) {
+        for (size_t node = 0; node < anim.nodes.size(); ++node) {
+          auto& node_impl = anim.nodes[node];
+          const auto& node_key = anim.anim_keys[node];
+
+          if (key < node_key.translation.size()) {
+            node_impl->set_translation(node_key.translation[key]);
           }
 
-          update_graph(root);
+          if (key < node_key.scale.size()) {
+            node_impl->set_scale(node_key.scale[key]);
+          }
 
-          std::vector<glm::mat4> transforms;
-          transforms.reserve(skin.nodes.size());
+          if (key < node_key.rotation.size()) {
+            node_impl->set_rotation(node_key.rotation[key]);
+          }
+        }
 
-          for (int i = 0; i < skin.nodes.size(); ++i) {
-            transforms.emplace_back(skin.nodes[i]->m_world_matrix * skin.inv_bind_poses[i]);
+        update_graph(root);
+
+        for (size_t skin = 0; skin < skins.size(); ++skin) {
+          auto& skin_impl = skins[skin];
+          auto& anims_list = skin_anims[skin].animations.at(anim.name);
+          anims_list.reserve(anims_list.size() + skin_impl.nodes.size());
+
+          for (size_t node = 0; node < skin_impl.nodes.size(); ++node) {
+            anims_list.emplace_back(skin_impl.nodes[node]->m_world_matrix * skin_impl.inv_bind_poses[node]);
           }
         }
       }
     }
+
+    return skin_anims;
   }
 
   template <GLenum BufType>
@@ -316,6 +356,8 @@ namespace gltf
 
   void load_meshes(const tinygltf::Model& mdl, const std::shared_ptr<scene_node>& root /*, const std::vector<animation>& anim */, gl::scene::scene& s)
   {
+    auto anim_tex_idx = s.textures.size() - 1;
+
     auto add_tex = [&s](gl::texture<GL_TEXTURE_2D>& t, gl::scene::material& m, const std::string& s_name) {
       s.textures.emplace_back(std::move(t));
       m.add_texture(s_name, s.textures.size() - 1);
@@ -346,30 +388,37 @@ namespace gltf
         if (primitive.material >= 0) {
           auto load_img = [&mdl](const auto& tex_info, gl::texture<GL_TEXTURE_2D>& gl_tex) {
             const auto& tex_handler = mdl.textures.at(tex_info.index);
-            auto& img_handler = mdl.images.at(tex_handler.source);
-            gl_tex.fill<uint8_t>((void*)img_handler.image.data(), img_handler.width, img_handler.height, img_handler.component);
+            const auto& img_handler = mdl.images.at(tex_handler.source);
+            gl_tex.fill(reinterpret_cast<const uint8_t*>(img_handler.image.data()), img_handler.width, img_handler.height, img_handler.component);
           };
 
           const auto& mat_handler = mdl.materials.at(primitive.material);
 
-          gl::texture<GL_TEXTURE_2D> normal;
-          gl::texture<GL_TEXTURE_2D> albedo;
-          gl::texture<GL_TEXTURE_2D> metallic_roughness;
-
-          load_img(mat_handler.normalTexture, normal);
-          load_img(mat_handler.pbrMetallicRoughness.baseColorTexture, albedo);
-          load_img(mat_handler.pbrMetallicRoughness.metallicRoughnessTexture, metallic_roughness);
-
           auto& m = s.materials.emplace_back(0);
 
-          add_tex(normal, m, "s_normal");
-          add_tex(albedo, m, "s_albedo");
-          add_tex(metallic_roughness, m, "s_mrao");
+          if (mat_handler.normalTexture.index >= 0) {
+            gl::texture<GL_TEXTURE_2D> normal;
+            load_img(mat_handler.normalTexture, normal);
+            add_tex(normal, m, "s_normal");
+          }
+
+          if (mat_handler.pbrMetallicRoughness.baseColorTexture.index >= 0) {
+            gl::texture<GL_TEXTURE_2D> albedo;
+            load_img(mat_handler.pbrMetallicRoughness.baseColorTexture, albedo);
+            add_tex(albedo, m, "s_albedo");
+          }
+
+          if (mat_handler.pbrMetallicRoughness.baseColorTexture.index >= 0) {
+            gl::texture<GL_TEXTURE_2D> metallic_roughness;
+            load_img(mat_handler.pbrMetallicRoughness.metallicRoughnessTexture, metallic_roughness);
+            add_tex(metallic_roughness, m, "s_mrao");
+          }
 
           m.add_texture("s_env", 0);
           m.add_texture("s_ibl_diff", 1);
           m.add_texture("s_ibl_spec", 2);
           m.add_texture("s_brdf", 3);
+          m.add_texture("s_anim", anim_tex_idx);
 
           m.set_state({
               {true, true, true, true},
@@ -390,7 +439,7 @@ namespace gltf
   }
 }
 
-gl::scene::scene gltf::load_scene(const std::string& file_name, const std::string& env_tex_name)
+gl::scene::scene gltf::load_scene(const std::string& file_name, const std::string& env_tex_name, bool is_glb)
 {
   tinygltf::Model mdl;
   tinygltf::TinyGLTF loader;
@@ -402,10 +451,10 @@ gl::scene::scene gltf::load_scene(const std::string& file_name, const std::strin
 
   s.camera.fov = glm::radians(90.f);
   s.camera.near = 0.1;
-  s.camera.far = 1000;
+  s.camera.far = 10000;
   s.camera.up = {0, 1, 0};
-  s.camera.forward = {0, 0, -1};
-  s.camera.position = {0, 0, 3};
+  s.camera.forward = {0, 0, 1};
+  s.camera.position = {0, 0, -3};
 
   auto env_tex = loader::load_tex_cube(env_tex_name);
   auto ibl_diff = loader::load_diff_ibl(env_tex);
@@ -463,7 +512,13 @@ gl::scene::scene gltf::load_scene(const std::string& file_name, const std::strin
   n.mesh_idx = 0;
   n.material_idx = 0;
 
-  bool load_success = loader.LoadASCIIFromFile(&mdl, &err_msg, &warn_msg, file_name);
+  bool load_success = false;
+
+  if (!is_glb) {
+    load_success = loader.LoadASCIIFromFile(&mdl, &err_msg, &warn_msg, file_name);
+  } else {
+    load_success = loader.LoadBinaryFromFile(&mdl, &err_msg, &warn_msg, file_name);
+  }
 
   if (!load_success) {
     throw std::runtime_error(err_msg);
@@ -477,6 +532,18 @@ gl::scene::scene gltf::load_scene(const std::string& file_name, const std::strin
 
   auto skins = get_skins(mdl, root);
   auto anims = get_animations(mdl, root);
+  auto anims_matrices = calculate_animations(anims, skins, root);
+
+  for (size_t i = 0; i < skins.size(); ++i) {
+    for (auto& data : anims_matrices[i].animations) {
+      gl::texture<GL_TEXTURE_2D> anim_tex;
+      const auto width = skins[i].nodes.size() * 4;
+      const auto height = data.second.size() / skins[i].nodes.size();
+      assert(width * height == data.second.size() * 4);
+      anim_tex.fill(glm::value_ptr(data.second.front()), width, height, 4, false);
+      s.textures.emplace_back(std::move(anim_tex));
+    }
+  }
 
   load_meshes(mdl, root, s);
 
