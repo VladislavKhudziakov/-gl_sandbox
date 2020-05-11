@@ -21,6 +21,7 @@ namespace gltf
 
   struct skin
   {
+    std::string name;
     std::vector<glm::mat4> inv_bind_poses;
     std::vector<std::shared_ptr<scene_node>> nodes;
   };
@@ -34,6 +35,7 @@ namespace gltf
 
   struct animation
   {
+    std::string name;
     std::vector<std::shared_ptr<scene_node>> nodes;
     std::vector<anim_keys> anim_keys;
   };
@@ -156,6 +158,22 @@ namespace gltf
     return nullptr;
   }
 
+  void update_graph(std::shared_ptr<scene_node>& n)
+  {
+    const auto local_transform = n->calc_TRS();
+    const auto parent_ptr = n->m_parent.lock();
+
+    if (parent_ptr != nullptr) {
+      n->m_world_matrix = parent_ptr->m_world_matrix * local_transform;
+    } else {
+      n->m_world_matrix = local_transform;
+    }
+
+    for (auto& child : n->m_children) {
+      update_graph(child);
+    }
+  }
+
   accessor_data get_buffer_data(const tinygltf::Model &mdl, uint32_t accessor_idx)
   {
     return {
@@ -168,40 +186,47 @@ namespace gltf
     };
   }
 
-  std::vector<gltf::skin> get_skins(const tinygltf::Model& mdl, const std::shared_ptr<gltf::scene_node>& root)
+  template <typename Callable, typename Container>
+  void copy_buffer_data(Callable&& get_data_ptr, Container& container, tinygltf::Model& mdl, uint32_t accessor_idx)
+  {
+    auto [data_accessor, data_b_view, data_buf, data_ptr, data_size] = get_buffer_data(mdl, accessor_idx);
+    container.reserve(data_accessor.count);
+    for (size_t i = 0; i < data_accessor.count; ++i) {
+      auto& curr_el = container.emplace_back();
+      std::memcpy(get_data_ptr(container.back()), data_ptr + data_accessor.byteOffset, sizeof(curr_el));
+      data_ptr += data_b_view.byteStride;
+    }
+  }
+
+  std::vector<gltf::skin> get_skins(tinygltf::Model& mdl, const std::shared_ptr<gltf::scene_node>& root)
   {
     std::vector<skin> skins;
     skins.reserve(mdl.skins.size());
 
     for (const auto& skin : mdl.skins) {
-      skins.emplace_back();
-      skins.back().inv_bind_poses.resize(skin.joints.size());
+      auto& curr_skin = skins.emplace_back();
+      curr_skin.name = skin.name;
+      curr_skin.nodes.reserve(skin.joints.size());
 
-      auto [ib_accessor, ib_b_view, ib_buf, ib_data, ib_data_size] = get_buffer_data(mdl, skin.inverseBindMatrices);
-      std::memcpy(skins.back().inv_bind_poses.data(), ib_data, ib_data_size);
+      copy_buffer_data([](glm::mat4& data) {return glm::value_ptr(data); }, curr_skin.inv_bind_poses, mdl, skin.inverseBindMatrices);
 
       for (auto joint : skin.joints) {
         auto node = find_node_by_index(root, joint);
-        skins.begin()->nodes.emplace_back(node);
+        curr_skin.nodes.emplace_back(node);
       }
     }
-
-    auto& null_skin = skins.emplace_back();
-    null_skin.inv_bind_poses.emplace_back(glm::mat4{1});
-    const auto& null_node = find_node_by_index(root, mdl.nodes.size());
-    null_skin.nodes.emplace_back(null_node);
     return skins;
   }
 
-  std::vector<gltf::animation> get_animations(const tinygltf::Model &mdl, const std::shared_ptr<scene_node>& root)
+  std::vector<gltf::animation> get_animations(tinygltf::Model &mdl, const std::shared_ptr<scene_node>& root)
   {
     std::vector<animation> animations;
 
     for (const auto& animation : mdl.animations) {
-      animations.emplace_back();
+      auto& curr_anim = animations.emplace_back();
+      curr_anim.name = animation.name;
 
       for (const auto& channel : animation.channels) {
-        auto& curr_anim = animations.back();
         const auto& sampler = animation.samplers.at(channel.sampler);
 
         auto node_it = std::find_if(curr_anim.nodes.begin(), curr_anim.nodes.end(), [&](const std::shared_ptr<scene_node>& node) {
@@ -217,22 +242,57 @@ namespace gltf
         } else {
           idx = node_it - curr_anim.nodes.begin();
         }
-        auto [data_accessor, data_b_view, data_buf, data_ptr, data_size] = get_buffer_data(mdl, sampler.output);
 
         if (channel.target_path == "translation") {
-          curr_anim.anim_keys[idx].translation.resize(data_accessor.count);
-          std::memcpy(curr_anim.anim_keys[idx].translation.data(), data_ptr, data_size);
+          copy_buffer_data([](glm::vec3& data) {return glm::value_ptr(data); }, curr_anim.anim_keys.at(idx).translation, mdl, sampler.output);
         } else if (channel.target_path == "scale") {
-          curr_anim.anim_keys[idx].scale.resize(data_accessor.count);
-          std::memcpy(curr_anim.anim_keys[idx].scale.data(), data_ptr, data_size);
+          copy_buffer_data([](glm::vec3& data) {return glm::value_ptr(data); }, curr_anim.anim_keys.at(idx).scale, mdl, sampler.output);
         } else if (channel.target_path == "rotation") {
-          curr_anim.anim_keys[idx].rotation.resize(data_accessor.count);
-          std::memcpy(curr_anim.anim_keys[idx].rotation.data(), data_ptr, data_size);
+          copy_buffer_data([](glm::quat& data) {return glm::value_ptr(data); }, curr_anim.anim_keys.at(idx).rotation, mdl, sampler.output);
         }
       }
     }
 
     return animations;
+  }
+
+  void calculate_animations(std::vector<gltf::animation>& anims, std::vector<gltf::skin>& skins, std::shared_ptr<scene_node>& root)
+  {
+    for (auto& skin : skins) {
+      for (const auto& anim : anims) {
+        auto keys_size = anim.anim_keys[0].translation.size();
+        keys_size = std::max(keys_size, anim.anim_keys[0].scale.size());
+        keys_size = std::max(keys_size, anim.anim_keys[0].rotation.size());
+
+        for (size_t key = 0; key < keys_size; ++key) {
+          for (size_t node = 0; node < anim.nodes.size(); ++node) {
+            auto& node_impl = anim.nodes[node];
+            const auto& node_key = anim.anim_keys[node];
+
+            if (node_key.translation.size() > 0) {
+              node_impl->set_translation(node_key.translation[key]);
+            }
+
+            if (node_key.scale.size() > 0) {
+              node_impl->set_translation(node_key.scale[key]);
+            }
+
+            if (node_key.rotation.size() > 0) {
+              node_impl->set_rotation(node_key.rotation[key]);
+            }
+          }
+
+          update_graph(root);
+
+          std::vector<glm::mat4> transforms;
+          transforms.reserve(skin.nodes.size());
+
+          for (int i = 0; i < skin.nodes.size(); ++i) {
+            transforms.emplace_back(skin.nodes[i]->m_world_matrix * skin.inv_bind_poses[i]);
+          }
+        }
+      }
+    }
   }
 
   template <GLenum BufType>
@@ -413,8 +473,10 @@ gl::scene::scene gltf::load_scene(const std::string& file_name, const std::strin
     std::cerr << warn_msg << std::endl;
   }
 
-
   auto root = make_graph(mdl);
+
+  auto skins = get_skins(mdl, root);
+  auto anims = get_animations(mdl, root);
 
   load_meshes(mdl, root, s);
 
