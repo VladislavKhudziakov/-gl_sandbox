@@ -12,72 +12,72 @@
 
 namespace
 {
-  void process_node(
-          const aiNode* node,
-          const aiScene* scene,
-          std::vector<loader::vertex>& vertices,
-          std::vector<uint32_t>& indices,
-          std::vector<loader::geom_subset>& subsets)
-  {
-    for (uint64_t i = 0; i < node->mNumMeshes; ++i) {
-      const auto& mesh = scene->mMeshes[i];
+    void process_node(
+        const aiNode* node,
+        const aiScene* scene,
+        std::vector<loader::vertex>& vertices,
+        std::vector<uint32_t>& indices,
+        std::vector<loader::geom_subset>& subsets)
+    {
+        for (uint64_t i = 0; i < node->mNumMeshes; ++i) {
+            const auto& mesh = scene->mMeshes[i];
 
-      const auto base_vertex = vertices.size();
+            const auto base_vertex = vertices.size();
 
-      vertices.reserve(vertices.size() + mesh->mNumVertices);
+            vertices.reserve(vertices.size() + mesh->mNumVertices);
 
-      for (uint64_t j = 0; j < mesh->mNumVertices; ++j) {
-        auto& v = vertices.emplace_back();
-        const auto& pos = mesh->mVertices[j];
-        const auto& normal = mesh->mNormals[j];
-        const auto& tangent = mesh->mTangents[j];
-        const auto& uv = mesh->mTextureCoords[0][j];
+            for (uint64_t j = 0; j < mesh->mNumVertices; ++j) {
+                auto& v = vertices.emplace_back();
+                const auto& pos = mesh->mVertices[j];
+                const auto& normal = mesh->mNormals[j];
+                const auto& tangent = mesh->mTangents[j];
+                const auto& uv = mesh->mTextureCoords[0][j];
 
-        v.position = {pos.x, pos.y, pos.z};
-        v.normal = {normal.x, normal.y, normal.z};
-        v.tangent = {tangent.x, tangent.y, tangent.z};
-        v.uv = {uv.x, uv.y};
-      }
+                v.position = {pos.x, pos.y, pos.z};
+                v.normal = {normal.x, normal.y, normal.z};
+                v.tangent = {tangent.x, tangent.y, tangent.z};
+                v.uv = {uv.x, uv.y};
+            }
 
-      auto& subset = subsets.emplace_back();
-        subset.base_vertex = base_vertex;
-      for (uint64_t k = 0; k < mesh->mNumFaces; ++k) {
-        const auto& face = mesh->mFaces[k];
-        for (int j = 0; j < face.mNumIndices; ++j) {
-          indices.emplace_back(face.mIndices[j]);
+            auto& subset = subsets.emplace_back();
+            subset.base_vertex = base_vertex;
+            for (uint64_t k = 0; k < mesh->mNumFaces; ++k) {
+                const auto& face = mesh->mFaces[k];
+                for (int j = 0; j < face.mNumIndices; ++j) {
+                    indices.emplace_back(face.mIndices[j]);
+                }
+            }
+            subset.length = indices.size() - subset.base_vertex;
         }
-      }
-      subset.length = indices.size() - subset.base_vertex;
+
+        for (int l = 0; l < node->mNumChildren; ++l) {
+            process_node(node->mChildren[l], scene, vertices, indices, subsets);
+        }
     }
-
-    for (int l = 0; l < node->mNumChildren; ++l) {
-      process_node(node->mChildren[l], scene, vertices, indices, subsets);
-    }
-  }
-}
+} // namespace
 
 
-loader::mesh_instance loader::load_model(const std::string &file_name)
+loader::mesh_instance loader::load_model(const std::string& file_name)
 {
-  loader::mesh_instance result {};
+    loader::mesh_instance result{};
 
-  Assimp::Importer importer;
-  auto scene = importer.ReadFile(file_name, aiProcess_CalcTangentSpace | aiProcess_Triangulate | aiProcess_FlipUVs);
-  std::vector<vertex> vertices;
-  std::vector<uint32_t> indices;
-  process_node(scene->mRootNode, scene, vertices, indices, result.subsets);
+    Assimp::Importer importer;
+    auto scene = importer.ReadFile(file_name, aiProcess_CalcTangentSpace | aiProcess_Triangulate | aiProcess_FlipUVs);
+    std::vector<vertex> vertices;
+    std::vector<uint32_t> indices;
+    process_node(scene->mRootNode, scene, vertices, indices, result.subsets);
 
-  {
-    gl::buffer<GL_ARRAY_BUFFER> buf;
-    buf.fill(vertices.data(), vertices.size() * sizeof(vertices.front()));
-    result.vertices.add_vertex_array(buf, 3, sizeof(vertex), 0);
-    result.vertices.add_vertex_array(buf, 3, sizeof(vertex), sizeof(glm::vec3));
-    result.vertices.add_vertex_array(buf, 3, sizeof(vertex), sizeof(glm::vec3[2]));
-    result.vertices.add_vertex_array(buf, 2, sizeof(vertex), sizeof(glm::vec3[3]));
-  }
+    {
+        gl::buffer<GL_ARRAY_BUFFER> buf;
+        buf.fill(vertices.data(), vertices.size() * sizeof(vertices.front()));
+        result.vertices.add_vertex_array(buf, 3, sizeof(vertex), 0);
+        result.vertices.add_vertex_array(buf, 3, sizeof(vertex), sizeof(glm::vec3));
+        result.vertices.add_vertex_array(buf, 3, sizeof(vertex), sizeof(glm::vec3[2]));
+        result.vertices.add_vertex_array(buf, 2, sizeof(vertex), sizeof(glm::vec3[3]));
+    }
 
-  result.indices.fill(indices.data(), indices.size() * sizeof(indices.front()));
-  return result;
+    result.indices.fill(indices.data(), indices.size() * sizeof(indices.front()));
+    return result;
 }
 
 
@@ -93,44 +93,43 @@ gl::texture<GL_TEXTURE_2D> loader::load_tex_2d(const std::string& file_name)
 
 gl::texture<GL_TEXTURE_CUBE_MAP> loader::load_tex_cube(const std::string& file_name, uint32_t w, uint32_t h)
 {
-  int32_t pw, ph, pc;
-  const auto data = stbi_loadf(file_name.c_str(), &pw, &ph, &pc, 0);
-  if (data == nullptr) {
-    throw std::runtime_error("cannot load image");
-  }
-
-  gl::texture<GL_TEXTURE_2D> env_tex;
-  env_tex.fill<float>(data, pw, ph, pc);
-  gl::texture<GL_TEXTURE_CUBE_MAP> cube_tex{};
-
-  {
-    gl::bind_guard g(cube_tex);
-    for (int i = 0; i < 6; ++i) {
-      glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGBA16F, w, h, 0, GL_RGBA, GL_FLOAT, nullptr);
+    int32_t pw, ph, pc;
+    const auto data = stbi_loadf(file_name.c_str(), &pw, &ph, &pc, 0);
+    if (data == nullptr) {
+        throw std::runtime_error("cannot load image");
     }
-  }
 
-  gl::vertex_array_object cube_vao;
-  {
-    gl::buffer<GL_ARRAY_BUFFER> buf;
-    buf.fill(primitives::cube_vertices, sizeof(primitives::cube_vertices));
-    cube_vao.add_vertex_array(buf, 3, sizeof(float[3 + 3 + 2]));
-    cube_vao.add_vertex_array(buf, 3, sizeof(float[3 + 3 + 2]), sizeof(float[3]));
-    cube_vao.add_vertex_array(buf, 3, sizeof(float[3 + 3 + 2]), sizeof(float[3 + 3]));
-  }
+    gl::texture<GL_TEXTURE_2D> env_tex;
+    env_tex.fill<float>(data, pw, ph, pc);
+    gl::texture<GL_TEXTURE_CUBE_MAP> cube_tex{};
 
-  glm::mat4 capture_projection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
+    {
+        gl::bind_guard g(cube_tex);
+        for (int i = 0; i < 6; ++i) {
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGBA16F, w, h, 0, GL_RGBA, GL_FLOAT, nullptr);
+        }
+    }
 
-  glm::mat4 capture_views[] = {
-      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( -1.0f,  0.0f,  0.0f), glm::vec3(0.0f, 1.0f,  0.0f)),
-      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0f,  0.0f,  0.0f), glm::vec3(0.0f, 1.0f,  0.0f)),
-      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  -1.0f,  0.0f), glm::vec3(0.0f,  0.0f,  1.0f)),
-      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f, 1.0f,  0.0f), glm::vec3(0.0f,  0.0f, -1.0f)),
-      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  0.0f,  1.0f), glm::vec3(0.0f, 1.0f,  0.0f)),
-      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  0.0f, -1.0f), glm::vec3(0.0f, 1.0f,  0.0f))
-  };
+    gl::vertex_array_object cube_vao;
+    {
+        gl::buffer<GL_ARRAY_BUFFER> buf;
+        buf.fill(primitives::cube_vertices, sizeof(primitives::cube_vertices));
+        cube_vao.add_vertex_array(buf, 3, sizeof(float[3 + 3 + 2]));
+        cube_vao.add_vertex_array(buf, 3, sizeof(float[3 + 3 + 2]), sizeof(float[3]));
+        cube_vao.add_vertex_array(buf, 3, sizeof(float[3 + 3 + 2]), sizeof(float[3 + 3]));
+    }
 
-  constexpr auto vs = R"(#version 410 core
+    glm::mat4 capture_projection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
+
+    glm::mat4 capture_views[] = {
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(-1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f)),
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f)),
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f)),
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 1.0f, 0.0f)),
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f))};
+
+    constexpr auto vs = R"(#version 410 core
 layout (location = 0) in vec3 attr_pos;
 
 out vec3 v_pos;
@@ -144,7 +143,7 @@ void main()
 }
 )";
 
-  constexpr auto fs = R"(#version 410 core
+    constexpr auto fs = R"(#version 410 core
 layout (location = 0) out vec4 frag_color;
 
 in vec3 v_pos;
@@ -169,42 +168,41 @@ void main()
     frag_color = vec4(color, 1.0);
 })";
 
-  gl::program p{gl::shader<GL_VERTEX_SHADER>{vs}, gl::shader<GL_FRAGMENT_SHADER>{fs}};
+    gl::program p{gl::shader<GL_VERTEX_SHADER>{vs}, gl::shader<GL_FRAGMENT_SHADER>{fs}};
 
-  gl::bind_guard tex_guard(env_tex);
-  gl::bind_guard cube_guard(cube_vao);
-  gl::bind_guard program_guard(p);
-  p.set_uniform("s_equirectangular_map", 0);
+    gl::bind_guard tex_guard(env_tex);
+    gl::bind_guard cube_guard(cube_vao);
+    gl::bind_guard program_guard(p);
+    p.set_uniform("s_equirectangular_map", 0);
 
-  uint32_t fb;
+    uint32_t fb;
 
-  glGenFramebuffers(1, &fb);
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fb);
-  glViewport(0, 0, w, h);
-  glEnable(GL_DEPTH_TEST);
-  for (size_t i = 0; i < 6; ++i) {
-    const auto mvp = capture_projection * capture_views[i];
-    p.set_uniform("u_MVP", mvp);
-    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, cube_tex, 0);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glDrawArrays(GL_TRIANGLES, 0, 36);
-  }
+    glGenFramebuffers(1, &fb);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fb);
+    glViewport(0, 0, w, h);
+    glEnable(GL_DEPTH_TEST);
+    for (size_t i = 0; i < 6; ++i) {
+        const auto mvp = capture_projection * capture_views[i];
+        p.set_uniform("u_MVP", mvp);
+        glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, cube_tex, 0);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+    }
 
-  {
-    gl::bind_guard g(cube_tex);
-    glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
-  }
+    {
+        gl::bind_guard g(cube_tex);
+        glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
+    }
 
-  glDeleteFramebuffers(1, &fb);
-  stbi_image_free(data);
-  return cube_tex;
+    glDeleteFramebuffers(1, &fb);
+    stbi_image_free(data);
+    return cube_tex;
 }
 
 
 gl::texture<GL_TEXTURE_CUBE_MAP> loader::load_diff_ibl(const gl::texture<GL_TEXTURE_CUBE_MAP>& env_tex)
 {
-
-  constexpr auto vs = R"(#version 410 core
+    constexpr auto vs = R"(#version 410 core
 layout (location = 0) in vec3 attr_pos;
 
 out vec3 v_pos;
@@ -218,7 +216,7 @@ void main()
 }
 )";
 
-  constexpr auto fs = R"(#version 410 core
+    constexpr auto fs = R"(#version 410 core
 layout (location = 0) out vec4 frag_color;
 
 in vec3 v_pos;
@@ -250,66 +248,66 @@ void main()
   frag_color = vec4(PI * irradiance * (1.0 / float(samples_count)), 1.0);
 })";
 
-  gl::vertex_array_object cube_vao;
-  {
-    gl::buffer<GL_ARRAY_BUFFER> buf;
-    buf.fill(primitives::cube_vertices, sizeof(primitives::cube_vertices));
-    cube_vao.add_vertex_array(buf, 3, sizeof(float[3 + 3 + 2]));
-    cube_vao.add_vertex_array(buf, 3, sizeof(float[3 + 3 + 2]), sizeof(float[3]));
-    cube_vao.add_vertex_array(buf, 3, sizeof(float[3 + 3 + 2]), sizeof(float[3 + 3]));
-  }
-
-  gl::texture<GL_TEXTURE_CUBE_MAP> cube_tex;
-  {
-    gl::bind_guard g(cube_tex);
-    for (int i = 0; i < 6; ++i) {
-      glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGBA16F, 32, 32, 0, GL_RGBA, GL_FLOAT, nullptr);
+    gl::vertex_array_object cube_vao;
+    {
+        gl::buffer<GL_ARRAY_BUFFER> buf;
+        buf.fill(primitives::cube_vertices, sizeof(primitives::cube_vertices));
+        cube_vao.add_vertex_array(buf, 3, sizeof(float[3 + 3 + 2]));
+        cube_vao.add_vertex_array(buf, 3, sizeof(float[3 + 3 + 2]), sizeof(float[3]));
+        cube_vao.add_vertex_array(buf, 3, sizeof(float[3 + 3 + 2]), sizeof(float[3 + 3]));
     }
-  }
 
-  gl::program p{gl::shader<GL_VERTEX_SHADER>{vs}, gl::shader<GL_FRAGMENT_SHADER>{fs}};
+    gl::texture<GL_TEXTURE_CUBE_MAP> cube_tex;
+    {
+        gl::bind_guard g(cube_tex);
+        for (int i = 0; i < 6; ++i) {
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGBA16F, 32, 32, 0, GL_RGBA, GL_FLOAT, nullptr);
+        }
+    }
+
+    gl::program p{gl::shader<GL_VERTEX_SHADER>{vs}, gl::shader<GL_FRAGMENT_SHADER>{fs}};
 
 
-  gl::bind_guard tex_guard(env_tex);
-  gl::bind_guard cube_guard(cube_vao);
-  gl::bind_guard program_guard(p);
-  p.set_uniform("s_env_map", 0);
+    gl::bind_guard tex_guard(env_tex);
+    gl::bind_guard cube_guard(cube_vao);
+    gl::bind_guard program_guard(p);
+    p.set_uniform("s_env_map", 0);
 
-  glm::mat4 capture_projection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
+    glm::mat4 capture_projection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
 
-  glm::mat4 capture_views[] = {
-      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
-      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(-1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
-      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  1.0f,  0.0f), glm::vec3(0.0f,  0.0f,  1.0f)),
-      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f, -1.0f,  0.0f), glm::vec3(0.0f,  0.0f, -1.0f)),
-      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  0.0f,  1.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
-      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  0.0f, -1.0f), glm::vec3(0.0f, -1.0f,  0.0f))
-  };
+    glm::mat4 capture_views[] = {
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f)),
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(-1.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f)),
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f)),
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, -1.0f, 0.0f)),
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, -1.0f, 0.0f))};
 
-  uint32_t fb;
+    uint32_t fb;
 
-  glGenFramebuffers(1, &fb);
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fb);
-  glViewport(0, 0, 32, 32);
+    glGenFramebuffers(1, &fb);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fb);
+    glViewport(0, 0, 32, 32);
 
-  glEnable(GL_DEPTH_TEST);
-  for (size_t i = 0; i < 6; ++i) {
-    const auto mvp = capture_projection * capture_views[i];
-    p.set_uniform("u_MVP", mvp);
-    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, cube_tex, 0);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glDrawArrays(GL_TRIANGLES, 0, 36);
-  }
+    glEnable(GL_DEPTH_TEST);
+    for (size_t i = 0; i < 6; ++i) {
+        const auto mvp = capture_projection * capture_views[i];
+        p.set_uniform("u_MVP", mvp);
+        glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, cube_tex, 0);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+    }
 
-  glDisable(GL_DEPTH_TEST);
+    glDisable(GL_DEPTH_TEST);
 
-  glDeleteFramebuffers(1, &fb);
+    glDeleteFramebuffers(1, &fb);
 
-  return cube_tex;
+    return cube_tex;
 }
 std::pair<gl::texture<GL_TEXTURE_CUBE_MAP>, gl::texture<GL_TEXTURE_2D>>
-loader::load_spec_ibl(const gl::texture<GL_TEXTURE_CUBE_MAP> &env_tex) {
-  constexpr auto vs = R"(#version 410 core
+loader::load_spec_ibl(const gl::texture<GL_TEXTURE_CUBE_MAP>& env_tex)
+{
+    constexpr auto vs = R"(#version 410 core
 layout (location = 0) in vec3 attr_pos;
 
 out vec3 v_pos;
@@ -323,7 +321,7 @@ void main()
 }
 )";
 
-  constexpr auto fs = R"(#version 410 core
+    constexpr auto fs = R"(#version 410 core
 layout (location = 0) out vec4 frag_color;
 
 in vec3 v_pos;
@@ -425,7 +423,7 @@ void main()
   frag_color = vec4(prefiltered_color, 1.0);
 })";
 
-  constexpr auto vs_brdf = R"(#version 410 core
+    constexpr auto vs_brdf = R"(#version 410 core
 layout (location = 0) in vec3 attr_pos;
 layout (location = 1) in vec2 attr_uv;
 out vec2 var_uv;
@@ -436,7 +434,7 @@ void main()
   gl_Position = vec4(attr_pos, 1.);
 })";
 
-  constexpr auto fs_brdf = R"(#version 410 core
+    constexpr auto fs_brdf = R"(#version 410 core
 layout (location = 0) out vec4 frag_color;
 
 in vec2 var_uv;
@@ -552,110 +550,109 @@ void main()
   frag_color = vec4(integratedBRDF, 0., 1.);
 })";
 
-  gl::vertex_array_object cube_vao;
-  {
-    gl::buffer<GL_ARRAY_BUFFER> buf;
-    buf.fill(primitives::cube_vertices, sizeof(primitives::cube_vertices));
-    cube_vao.add_vertex_array(buf, 3, sizeof(float[3 + 3 + 2]));
-    cube_vao.add_vertex_array(buf, 3, sizeof(float[3 + 3 + 2]), sizeof(float[3]));
-    cube_vao.add_vertex_array(buf, 3, sizeof(float[3 + 3 + 2]), sizeof(float[3 + 3]));
-  }
-
-  gl::vertex_array_object plane_vao;
-  {
-    gl::buffer<GL_ARRAY_BUFFER> buf;
-    buf.fill(primitives::plane_vertices, sizeof(primitives::plane_vertices));
-    plane_vao.add_vertex_array(buf, 3, sizeof(float[3]));
-    plane_vao.add_vertex_array(buf, 2, sizeof(float[2]), sizeof(float[3]) * 4);
-  }
-
-  gl::buffer<GL_ELEMENT_ARRAY_BUFFER> plane_ebo;
-  plane_ebo.fill(primitives::plane_indices, sizeof(primitives::plane_indices));
-
-  gl::texture<GL_TEXTURE_CUBE_MAP> cube_tex;
-  {
-    gl::bind_guard g(cube_tex);
-    for (int i = 0; i < 6; ++i) {
-      glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGBA16F, 128, 128, 0, GL_RGBA, GL_FLOAT, nullptr);
+    gl::vertex_array_object cube_vao;
+    {
+        gl::buffer<GL_ARRAY_BUFFER> buf;
+        buf.fill(primitives::cube_vertices, sizeof(primitives::cube_vertices));
+        cube_vao.add_vertex_array(buf, 3, sizeof(float[3 + 3 + 2]));
+        cube_vao.add_vertex_array(buf, 3, sizeof(float[3 + 3 + 2]), sizeof(float[3]));
+        cube_vao.add_vertex_array(buf, 3, sizeof(float[3 + 3 + 2]), sizeof(float[3 + 3]));
     }
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
-  }
 
-  gl::texture<GL_TEXTURE_2D> brdf_tex;
-  brdf_tex.fill<float>(nullptr, 512, 512);
-
-  gl::program p{gl::shader<GL_VERTEX_SHADER>{vs}, gl::shader<GL_FRAGMENT_SHADER>{fs}};
-  gl::program p2{gl::shader<GL_VERTEX_SHADER>{vs_brdf}, gl::shader<GL_FRAGMENT_SHADER>{fs_brdf}};
-
-
-  gl::bind_guard tex_guard(env_tex);
-  gl::bind_guard cube_guard(cube_vao);
-  gl::bind_guard program_guard(p);
-  p.set_uniform("s_env_map", 0);
-
-  glm::mat4 capture_projection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
-
-  glm::mat4 capture_views[] = {
-      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
-      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(-1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
-      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  1.0f,  0.0f), glm::vec3(0.0f,  0.0f,  1.0f)),
-      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f, -1.0f,  0.0f), glm::vec3(0.0f,  0.0f, -1.0f)),
-      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  0.0f,  1.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
-      glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  0.0f, -1.0f), glm::vec3(0.0f, -1.0f,  0.0f))
-  };
-
-
-  uint32_t fb, rbo;
-  glGenFramebuffers(1, &fb);
-  glGenRenderbuffers(1, &rbo);
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fb);
-  glBindRenderbuffer(GL_RENDERBUFFER, rbo);
-  glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rbo);
-  glEnable(GL_DEPTH_TEST);
-  glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
-
-  assert(glGetError() == GL_NO_ERROR);
-
-  size_t max_mip_levels = 5;
-
-  for (size_t curr_mip_lvl = 0; curr_mip_lvl < max_mip_levels; curr_mip_lvl++) {
-    auto mip_width  = 128 * std::pow(0.5, curr_mip_lvl);
-    auto mip_height = 128 * std::pow(0.5, curr_mip_lvl);
-    glViewport(0, 0, mip_width, mip_width);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, mip_width, mip_height);
-
-    float roughness = (float)curr_mip_lvl / (float)(max_mip_levels - 1);
-    p.set_uniform("u_roughness", roughness);
-
-    for (size_t i = 0; i < 6; ++i) {
-      const auto mvp = capture_projection * capture_views[i];
-      p.set_uniform("u_MVP", mvp);
-
-      glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, cube_tex, curr_mip_lvl);
-      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-      glDrawArrays(GL_TRIANGLES, 0, 36);
+    gl::vertex_array_object plane_vao;
+    {
+        gl::buffer<GL_ARRAY_BUFFER> buf;
+        buf.fill(primitives::plane_vertices, sizeof(primitives::plane_vertices));
+        plane_vao.add_vertex_array(buf, 3, sizeof(float[3]));
+        plane_vao.add_vertex_array(buf, 2, sizeof(float[2]), sizeof(float[3]) * 4);
     }
-  }
 
-  {
-    gl::bind_guard g1 (plane_vao);
-    gl::bind_guard g2 (plane_ebo);
-    gl::bind_guard g3 (p2);
+    gl::buffer<GL_ELEMENT_ARRAY_BUFFER> plane_ebo;
+    plane_ebo.fill(primitives::plane_indices, sizeof(primitives::plane_indices));
 
-    glViewport(0, 0, 512, 512);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, 512, 512);
-    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, brdf_tex, 0);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glDrawElements(GL_TRIANGLES, sizeof(primitives::plane_indices) / sizeof(primitives::plane_indices[0]), GL_UNSIGNED_INT, nullptr);
-  }
+    gl::texture<GL_TEXTURE_CUBE_MAP> cube_tex;
+    {
+        gl::bind_guard g(cube_tex);
+        for (int i = 0; i < 6; ++i) {
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGBA16F, 128, 128, 0, GL_RGBA, GL_FLOAT, nullptr);
+        }
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
+    }
 
-  glDisable(GL_DEPTH_TEST);
-  glDisable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
+    gl::texture<GL_TEXTURE_2D> brdf_tex;
+    brdf_tex.fill<float>(nullptr, 512, 512);
 
-  glDeleteFramebuffers(1, &fb);
-  glDeleteRenderbuffers(1, &rbo);
+    gl::program p{gl::shader<GL_VERTEX_SHADER>{vs}, gl::shader<GL_FRAGMENT_SHADER>{fs}};
+    gl::program p2{gl::shader<GL_VERTEX_SHADER>{vs_brdf}, gl::shader<GL_FRAGMENT_SHADER>{fs_brdf}};
 
-  assert(glGetError() == GL_NO_ERROR);
-  return {std::move(cube_tex), std::move(brdf_tex)};
+
+    gl::bind_guard tex_guard(env_tex);
+    gl::bind_guard cube_guard(cube_vao);
+    gl::bind_guard program_guard(p);
+    p.set_uniform("s_env_map", 0);
+
+    glm::mat4 capture_projection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
+
+    glm::mat4 capture_views[] = {
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f)),
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(-1.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f)),
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f)),
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, -1.0f, 0.0f)),
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, -1.0f, 0.0f))};
+
+
+    uint32_t fb, rbo;
+    glGenFramebuffers(1, &fb);
+    glGenRenderbuffers(1, &rbo);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fb);
+    glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+    glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rbo);
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
+
+    assert(glGetError() == GL_NO_ERROR);
+
+    size_t max_mip_levels = 5;
+
+    for (size_t curr_mip_lvl = 0; curr_mip_lvl < max_mip_levels; curr_mip_lvl++) {
+        auto mip_width = 128 * std::pow(0.5, curr_mip_lvl);
+        auto mip_height = 128 * std::pow(0.5, curr_mip_lvl);
+        glViewport(0, 0, mip_width, mip_width);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, mip_width, mip_height);
+
+        float roughness = (float) curr_mip_lvl / (float) (max_mip_levels - 1);
+        p.set_uniform("u_roughness", roughness);
+
+        for (size_t i = 0; i < 6; ++i) {
+            const auto mvp = capture_projection * capture_views[i];
+            p.set_uniform("u_MVP", mvp);
+
+            glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, cube_tex, curr_mip_lvl);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            glDrawArrays(GL_TRIANGLES, 0, 36);
+        }
+    }
+
+    {
+        gl::bind_guard g1(plane_vao);
+        gl::bind_guard g2(plane_ebo);
+        gl::bind_guard g3(p2);
+
+        glViewport(0, 0, 512, 512);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, 512, 512);
+        glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, brdf_tex, 0);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glDrawElements(GL_TRIANGLES, sizeof(primitives::plane_indices) / sizeof(primitives::plane_indices[0]), GL_UNSIGNED_INT, nullptr);
+    }
+
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
+
+    glDeleteFramebuffers(1, &fb);
+    glDeleteRenderbuffers(1, &rbo);
+
+    assert(glGetError() == GL_NO_ERROR);
+    return {std::move(cube_tex), std::move(brdf_tex)};
 }

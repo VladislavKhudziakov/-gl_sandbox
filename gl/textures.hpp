@@ -9,168 +9,170 @@
 
 namespace gl
 {
-  template <typename DataType, uint32_t FillTextureType>
-  struct texture_fill_resolver
-  {
-  };
-
-  template<> struct texture_fill_resolver<float, GL_TEXTURE_2D>
-  {
-    void operator()(const float* data, int32_t w, int32_t h, uint32_t channels = 4, bool is_f16 = true, bool gen_mips = false) const
+    template<typename DataType, uint32_t FillTextureType>
+    struct texture_fill_resolver
     {
-      int32_t texture_storage_type = -1;
-      int32_t texture_data_type = -1;
+    };
 
-      if (channels != 4) {
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-      }
-
-      switch (channels) {
-        case 1:
-          texture_storage_type = is_f16 ? GL_R16F : GL_R32F;
-          texture_data_type = GL_R;
-          break;
-        case 2:
-          texture_storage_type = is_f16 ? GL_RG16F : GL_RG32F;
-          texture_data_type = GL_RG;
-          break;
-        case 3:
-          texture_storage_type = is_f16 ? GL_RGB16F : GL_RGB32F;
-          texture_data_type = GL_RGB;
-          break;
-        case 4:
-          texture_storage_type = is_f16 ? GL_RGBA16F : GL_RGBA32F;
-          texture_data_type = GL_RGBA;
-          break;
-        default:
-          throw std::runtime_error("invalid channels count");
-      }
-
-      glTexImage2D(GL_TEXTURE_2D, 0, texture_storage_type, w, h, 0, texture_data_type, GL_FLOAT, data);
-
-      if (channels != 4) {
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-      }
-
-      if (gen_mips) {
-        glGenerateMipmap(GL_TEXTURE_2D);
-      }
-    }
-  };
-
-  template<> struct texture_fill_resolver<const uint8_t, GL_TEXTURE_2D>
-  {
-    void operator()(const uint8_t* data, int32_t w, int32_t h, uint32_t channels, bool gen_mips = false) const
+    template<>
+    struct texture_fill_resolver<float, GL_TEXTURE_2D>
     {
-      int32_t texture_storage_type = -1;
-      int32_t texture_data_type = -1;
+        void operator()(const float* data, int32_t w, int32_t h, uint32_t channels = 4, bool is_f16 = true, bool gen_mips = false) const
+        {
+            int32_t texture_storage_type = -1;
+            int32_t texture_data_type = -1;
 
-      if (channels != 4) {
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-      }
+            if (channels != 4) {
+                glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+            }
 
-      switch (channels) {
-      case 1:
-        texture_storage_type = GL_R8;
-        texture_data_type = GL_R;
-        break;
-      case 2:
-        texture_storage_type = GL_RG8;
-        texture_data_type = GL_RG;
-        break;
-      case 3:
-        texture_storage_type = GL_RGB8;
-        texture_data_type = GL_RGB;
-        break;
-      case 4:
-        texture_storage_type = GL_RGBA8;
-        texture_data_type = GL_RGBA;
-        break;
-      default:
-        throw std::runtime_error("invalid channels count");
-      }
+            switch (channels) {
+                case 1:
+                    texture_storage_type = is_f16 ? GL_R16F : GL_R32F;
+                    texture_data_type = GL_R;
+                    break;
+                case 2:
+                    texture_storage_type = is_f16 ? GL_RG16F : GL_RG32F;
+                    texture_data_type = GL_RG;
+                    break;
+                case 3:
+                    texture_storage_type = is_f16 ? GL_RGB16F : GL_RGB32F;
+                    texture_data_type = GL_RGB;
+                    break;
+                case 4:
+                    texture_storage_type = is_f16 ? GL_RGBA16F : GL_RGBA32F;
+                    texture_data_type = GL_RGBA;
+                    break;
+                default:
+                    throw std::runtime_error("invalid channels count");
+            }
 
-      glTexImage2D(GL_TEXTURE_2D, 0, texture_storage_type, w, h, 0, texture_data_type, GL_UNSIGNED_BYTE, data);
+            glTexImage2D(GL_TEXTURE_2D, 0, texture_storage_type, w, h, 0, texture_data_type, GL_FLOAT, data);
 
-      if (gen_mips) {
-        glGenerateMipmap(GL_TEXTURE_2D);
-      }
+            if (channels != 4) {
+                glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+            }
 
-      if (channels != 4) {
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-      }
-    }
-  };
+            if (gen_mips) {
+                glGenerateMipmap(GL_TEXTURE_2D);
+            }
+        }
+    };
 
-  template <uint32_t TextureType>
-  class texture
-  {
-  public:
-    explicit texture(int32_t filter_type = GL_LINEAR, int32_t wrap = GL_CLAMP_TO_EDGE)
+    template<>
+    struct texture_fill_resolver<const uint8_t, GL_TEXTURE_2D>
     {
-      glGenTextures(1, &m_gl_handler);
+        void operator()(const uint8_t* data, int32_t w, int32_t h, uint32_t channels, bool gen_mips = false) const
+        {
+            int32_t texture_storage_type = -1;
+            int32_t texture_data_type = -1;
 
-      bind_guard guard(*this);
+            if (channels != 4) {
+                glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+            }
 
-      glTexParameteri(TextureType, GL_TEXTURE_MIN_FILTER, filter_type);
-      glTexParameteri(TextureType, GL_TEXTURE_MAG_FILTER, filter_type);
+            switch (channels) {
+                case 1:
+                    texture_storage_type = GL_R8;
+                    texture_data_type = GL_R;
+                    break;
+                case 2:
+                    texture_storage_type = GL_RG8;
+                    texture_data_type = GL_RG;
+                    break;
+                case 3:
+                    texture_storage_type = GL_RGB8;
+                    texture_data_type = GL_RGB;
+                    break;
+                case 4:
+                    texture_storage_type = GL_RGBA8;
+                    texture_data_type = GL_RGBA;
+                    break;
+                default:
+                    throw std::runtime_error("invalid channels count");
+            }
 
-      glTexParameteri(TextureType, GL_TEXTURE_WRAP_S, wrap);
-      glTexParameteri(TextureType, GL_TEXTURE_WRAP_T, wrap);
+            glTexImage2D(GL_TEXTURE_2D, 0, texture_storage_type, w, h, 0, texture_data_type, GL_UNSIGNED_BYTE, data);
 
-      if constexpr (TextureType == GL_TEXTURE_CUBE_MAP) {
-        glTexParameteri(TextureType, GL_TEXTURE_WRAP_R, wrap);
-      }
+            if (gen_mips) {
+                glGenerateMipmap(GL_TEXTURE_2D);
+            }
 
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
-    }
+            if (channels != 4) {
+                glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+            }
+        }
+    };
 
-    texture(const texture&) = delete;
-    texture&operator=(const texture&) = delete;
-
-    texture(texture&& src) noexcept
+    template<uint32_t TextureType>
+    class texture
     {
-      *this = std::move(src);
-    }
+    public:
+        explicit texture(int32_t filter_type = GL_LINEAR, int32_t wrap = GL_CLAMP_TO_EDGE)
+        {
+            glGenTextures(1, &m_gl_handler);
 
-    texture&operator=(texture&& src) noexcept
-    {
-      if (this != &src) {
-        std::swap(m_gl_handler, src.m_gl_handler);
-      }
+            bind_guard guard(*this);
 
-      return *this;
-    }
+            glTexParameteri(TextureType, GL_TEXTURE_MIN_FILTER, filter_type);
+            glTexParameteri(TextureType, GL_TEXTURE_MAG_FILTER, filter_type);
 
-    ~texture()
-    {
-      glDeleteTextures(1, &m_gl_handler);
-    }
+            glTexParameteri(TextureType, GL_TEXTURE_WRAP_S, wrap);
+            glTexParameteri(TextureType, GL_TEXTURE_WRAP_T, wrap);
 
-    void bind(int32_t texture_target = 0) const
-    {
-      glActiveTexture(GL_TEXTURE0 + texture_target);
-      glBindTexture(TextureType, m_gl_handler);
-    }
+            if constexpr (TextureType == GL_TEXTURE_CUBE_MAP) {
+                glTexParameteri(TextureType, GL_TEXTURE_WRAP_R, wrap);
+            }
 
-    void unbind() const
-    {
-      glBindTexture(TextureType, m_gl_handler);
-    }
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+        }
 
-    template <typename DataType, typename ...Args>
-    void fill(DataType* data, int32_t w, int32_t h, Args&& ...args) const
-    {
-      bind_guard guard(*this);
-      texture_fill_resolver<DataType, TextureType>{}(data, w, h, std::forward<Args>(args)...);
-    }
+        texture(const texture&) = delete;
+        texture& operator=(const texture&) = delete;
 
-    operator uint32_t() const
-    {
-      return m_gl_handler;
-    }
+        texture(texture&& src) noexcept
+        {
+            *this = std::move(src);
+        }
 
-  private:
-    uint32_t m_gl_handler {0};
-  };
-}
+        texture& operator=(texture&& src) noexcept
+        {
+            if (this != &src) {
+                std::swap(m_gl_handler, src.m_gl_handler);
+            }
+
+            return *this;
+        }
+
+        ~texture()
+        {
+            glDeleteTextures(1, &m_gl_handler);
+        }
+
+        void bind(int32_t texture_target = 0) const
+        {
+            glActiveTexture(GL_TEXTURE0 + texture_target);
+            glBindTexture(TextureType, m_gl_handler);
+        }
+
+        void unbind() const
+        {
+            glBindTexture(TextureType, m_gl_handler);
+        }
+
+        template<typename DataType, typename... Args>
+        void fill(DataType* data, int32_t w, int32_t h, Args&&... args) const
+        {
+            bind_guard guard(*this);
+            texture_fill_resolver<DataType, TextureType>{}(data, w, h, std::forward<Args>(args)...);
+        }
+
+        operator uint32_t() const
+        {
+            return m_gl_handler;
+        }
+
+    private:
+        uint32_t m_gl_handler{0};
+    };
+} // namespace gl

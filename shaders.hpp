@@ -4,7 +4,7 @@
 
 namespace shaders
 {
-inline constexpr static auto* hdr_plane_vss = R"(#version 410 core
+    inline constexpr static auto* hdr_plane_vss = R"(#version 410 core
     layout (location=0) in vec3 a_pos;
     layout (location=1) in vec2 a_uv;
 
@@ -17,7 +17,7 @@ inline constexpr static auto* hdr_plane_vss = R"(#version 410 core
     }
   )";
 
-inline constexpr static auto* blur_fss = R"(#version 410 core
+    inline constexpr static auto* blur_fss = R"(#version 410 core
     layout (location=0) out vec4 frag_color;
 
     in vec2 var_uv;
@@ -39,7 +39,7 @@ inline constexpr static auto* blur_fss = R"(#version 410 core
     }
   )";
 
-inline constexpr static auto* hdr_plane_fss = R"(#version 410 core
+    inline constexpr static auto* hdr_plane_fss = R"(#version 410 core
     layout (location=0) out vec4 frag_color;
     in vec2 var_uv;
 
@@ -61,7 +61,7 @@ inline constexpr static auto* hdr_plane_fss = R"(#version 410 core
     }
   )";
 
-inline constexpr static auto* deferred_lighting_fss = R"(#version 410 core
+    inline constexpr static auto* deferred_lighting_fss = R"(#version 410 core
     layout (location=0) out vec4 frag_color;
     in vec2 var_uv;
 
@@ -122,7 +122,7 @@ inline constexpr static auto* deferred_lighting_fss = R"(#version 410 core
     }
   )";
 
-inline constexpr static auto* ssao_fss = R"(#version 410 core
+    inline constexpr static auto* ssao_fss = R"(#version 410 core
     layout (location=0) out vec4 frag_color;
     in vec2 var_uv;
 
@@ -170,7 +170,7 @@ inline constexpr static auto* ssao_fss = R"(#version 410 core
   )";
 
 
-inline constexpr static auto* geometry_bloom_vss = R"(#version 410 core
+    inline constexpr static auto* geometry_bloom_vss = R"(#version 410 core
     layout (location = 0) in vec3 a_pos;
     layout (location = 1) in vec3 a_n;
     layout (location = 2) in vec2 a_uv;
@@ -191,7 +191,7 @@ inline constexpr static auto* geometry_bloom_vss = R"(#version 410 core
     }
   )";
 
-inline constexpr static auto* geometry_bloom_fss = R"(#version 410 core
+    inline constexpr static auto* geometry_bloom_fss = R"(#version 410 core
     layout (location=0) out vec4 orig_color;
     layout (location=1) out vec4 bloom_map;
 
@@ -231,7 +231,7 @@ inline constexpr static auto* geometry_bloom_fss = R"(#version 410 core
     }
   )";
 
-inline constexpr static auto* normal_map_v_shader_source =R"(#version 410 core
+    inline constexpr static auto* normal_map_v_shader_source = R"(#version 410 core
   layout (location=0) in vec3 a_pos;
   layout (location=1) in vec2 a_uv;
   layout (location=2) in vec3 a_n;
@@ -277,7 +277,7 @@ inline constexpr static auto* normal_map_v_shader_source =R"(#version 410 core
   }
   )";
 
-inline constexpr static auto* normal_map_f_shader_source = R"(#version 410 core
+    inline constexpr static auto* normal_map_f_shader_source = R"(#version 410 core
   layout (location=0) out vec4 frag_color;
 
   in vec2 var_uv;
@@ -302,7 +302,7 @@ inline constexpr static auto* normal_map_f_shader_source = R"(#version 410 core
   }
   )";
 
-inline constexpr static auto* hdr_v_shader_source =R"(#version 410 core
+    inline constexpr static auto* hdr_v_shader_source = R"(#version 410 core
 layout (location = 0) in vec3 aPos;
 layout (location = 1) in vec3 aNormal;
 layout (location = 2) in vec2 aTexCoords;
@@ -334,7 +334,7 @@ void main()
 }
 )";
 
-inline constexpr static auto* hdr_f_shader_source =R"(#version 410 core
+    inline constexpr static auto* hdr_f_shader_source = R"(#version 410 core
 out vec4 FragColor;
 
 in VS_OUT {
@@ -375,7 +375,7 @@ void main()
   FragColor = vec4(ambient + lighting, 1.0);
 })";
 
-inline constexpr static auto* cyborg_vss = R"(#version 410 core
+    inline constexpr static auto* cyborg_vss = R"(#version 410 core
 layout (location = 0) in vec3 attr_pos;
 layout (location = 1) in vec3 attr_normal;
 layout (location = 2) in vec3 attr_tangent;
@@ -402,7 +402,7 @@ void main()
 }
 )";
 
-inline constexpr static auto* cyborg_fss = R"(#version 410 core
+    inline constexpr static auto* cyborg_fss = R"(#version 410 core
 layout (location = 0) out vec4 frag_color;
 
 in vec2 var_uv;
@@ -452,7 +452,7 @@ void main()
 }
 )";
 
-inline constexpr static auto* cyborg_deferred_vss = R"(#version 410 core
+    inline constexpr static auto* cyborg_deferred_vss = R"(#version 410 core
 layout (location = 0) in vec3 attr_pos;
 layout (location = 1) in vec3 attr_normal;
 layout (location = 2) in vec3 attr_tangent;
@@ -481,7 +481,7 @@ void main()
 }
 )";
 
-inline constexpr static auto* cyborg_deferred_fss = R"(#version 410 core
+    inline constexpr static auto* cyborg_deferred_fss = R"(#version 410 core
 layout (location = 0) out vec4 vert_pos;
 layout (location = 1) out vec4 normal;
 layout (location = 2) out vec4 albedo_specular;
@@ -507,7 +507,7 @@ void main()
 )";
 
 
-inline constexpr static auto* pbr_vss = R"(#version 410 core
+    inline constexpr static auto* pbr_vss = R"(#version 410 core
 layout (location = 0) in vec3 attr_pos;
 layout (location = 1) in vec2 attr_uv;
 layout (location = 2) in vec3 attr_normal;
@@ -515,6 +515,7 @@ layout (location = 3) in vec3 attr_tangent;
 layout (location = 4) in vec4 attr_bones;
 layout (location = 5) in vec4 attr_weights;
 
+//#define ANIM
 
 out vec2 var_uv;
 out vec3 var_v;
@@ -524,6 +525,9 @@ out vec3 var_b;
 
 uniform mat4 u_MVP;
 uniform mat4 u_MODEL;
+
+#ifdef ANIM
+uniform int u_ANIM_KEY;
 uniform sampler2D s_anim;
 
 mat4 get_anim_matrix(int bone_idx, int key)
@@ -545,12 +549,18 @@ mat4 get_anim_transform(int key)
   return m1 + m2 + m3 + m4;
 }
 
+#endif
+
 void main()
 {
-  mat4 anim_transform = get_anim_transform(0);
+#ifdef ANIM
+  mat4 anim_transform = get_anim_transform(u_ANIM_KEY);
   mat4 model_transform = u_MODEL * anim_transform;
-
   vec3 pos = vec3(anim_transform * vec4(attr_pos, 1.));
+#else
+  vec3 pos = attr_pos;
+  mat4 model_transform = u_MODEL;
+#endif
 
   gl_Position = u_MVP * vec4(pos, 1.);
   var_n = vec3(model_transform * vec4(attr_normal, 0.));
@@ -564,7 +574,7 @@ void main()
 }
 )";
 
-inline constexpr static auto* pbr_fss = R"(#version 410 core
+    inline constexpr static auto* pbr_fss = R"(#version 410 core
 layout (location = 0) out vec4 frag_color;
 
 in vec2 var_uv;
@@ -678,7 +688,7 @@ void main()
 }
 )";
 
-inline constexpr static auto* solid_fss = R"(#version 410 core
+    inline constexpr static auto* solid_fss = R"(#version 410 core
 layout (location = 0) out vec4 frag_color;
 
 in vec2 var_uv;
@@ -695,7 +705,7 @@ void main()
 }
 )";
 
-inline constexpr static auto* cubemap_bg_fss = R"(#version 410 core
+    inline constexpr static auto* cubemap_bg_fss = R"(#version 410 core
 layout (location = 0) out vec4 frag_color;
 
 in vec3 v_pos;
@@ -709,7 +719,7 @@ void main()
 }
 )";
 
-inline constexpr static auto* cubemap_bg_vss = R"(#version 410 core
+    inline constexpr static auto* cubemap_bg_vss = R"(#version 410 core
 layout (location = 0) in vec3 attr_pos;
 
 out vec3 v_pos;
@@ -726,7 +736,7 @@ void main()
 }
 )";
 
-inline constexpr static auto* pbr_fss_ibl = R"(#version 410 core
+    inline constexpr static auto* pbr_fss_ibl = R"(#version 410 core
 layout (location = 0) out vec4 frag_color;
 
 in vec2 var_uv;
@@ -838,4 +848,4 @@ void main()
   frag_color = vec4(g2l(final_color), 1.);
 }
 )";
-}
+} // namespace shaders
