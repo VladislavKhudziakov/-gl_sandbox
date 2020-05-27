@@ -26,7 +26,7 @@ void gltf::common_parameters_builder::make_parameters(
     const auto mvp_index = scene.parameters.size() - 1;
     scene.parameters.emplace_back(gl::scene::parameter_type::f32, gl::scene::parameter_component_type::mat4);
     const auto model_index = scene.parameters.size() - 1;
-    scene.parameters.emplace_back(gl::scene::parameter_type::f32, gl::scene::parameter_component_type::vec1);
+    scene.parameters.emplace_back(gl::scene::parameter_type::f32, gl::scene::parameter_component_type::scalar);
     const auto anim_key_index = scene.parameters.size() - 1;
 
     material.add_parameter("u_MVP", mvp_index);

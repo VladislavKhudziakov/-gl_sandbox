@@ -39,14 +39,9 @@ namespace gltf
 
             mesh::topo topo;
 
-//            std::vector<glm::vec3> positions;
-//            std::vector<glm::vec3> normals;
-//            std::vector<glm::vec4> tangents;
-
             data_storage positions;
             data_storage normals;
             data_storage tangents;
-
             data_storage tex_coords0;
             data_storage tex_coords1;
             data_storage vertices_colors;

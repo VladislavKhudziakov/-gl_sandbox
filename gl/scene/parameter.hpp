@@ -17,7 +17,7 @@ namespace gl::scene
 
     enum class parameter_component_type
     {
-        vec1,
+        scalar,
         vec2,
         vec3,
         vec4,

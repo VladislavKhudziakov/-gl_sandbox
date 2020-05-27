@@ -5,7 +5,7 @@
 #include <third/tinygltf/tiny_gltf.h>
 
 #include <assimp_handlers.hpp>
-
+#include <gltf/misc/primitives.hpp>
 
 gltf::gl_scene_builder::gl_scene_builder(
     std::unique_ptr<mesh_builder> mesh_builder,
@@ -88,6 +88,33 @@ void gltf::gl_scene_builder::make_environment(
     const auto ibl_spec_index = gl_scene.textures.size() - 1;
     gl_scene.textures.emplace_back(std::move(ibl_brdf));
     const auto ibl_brdf_index = gl_scene.textures.size() - 1;
+
+    {
+        gl_scene.vertex_sources.emplace_back(gltf::primitives::make_cube());
+
+        gl_scene.meshes.emplace_back(
+            gl_scene.vertex_sources.size() - 1,
+            gl::scene::mesh::indices_type::none,
+            0,
+            36);
+
+        gl_scene.shaders.emplace_back(gltf::primitives::make_cubemap_shader());
+        gl_scene.materials.emplace_back(gl_scene.shaders.size() - 1);
+        gl_scene.materials.back().add_parameter("u_PROJECTION", 0);
+        gl_scene.materials.back().add_parameter("u_VIEW", 1);
+
+        gl_scene.materials.back().set_state({
+            {true, true, true, true},
+            true,
+            gl::scene::depth_func::leq,
+            gl::scene::cull_func::front
+        });
+
+        auto& drawable = gl_scene.drawables.emplace_back();
+        drawable.topo = gl::scene::drawable::topology::triangles;
+        drawable.mesh_idx = gl_scene.meshes.size() - 1;
+        drawable.material_idx = gl_scene.materials.size() - 1;
+    }
 
     for (auto& mat : gl_scene.materials) {
         mat.add_texture("s_env", env_index);

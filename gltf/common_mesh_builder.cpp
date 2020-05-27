@@ -23,10 +23,6 @@ void gltf::common_mesh_builder::make_subset(gl::scene::scene& gl_scene, const gl
 {
     auto& vao = gl_scene.vertex_sources.emplace_back();
 
-//    if (!geom_subset.positions.empty()) {
-//        utils::fill_vao(geom_subset.positions, vao, 0);
-//    }
-
     if (!geom_subset.positions.data.empty()) {
         utils::fill_vao(geom_subset.positions, vao, 0);
     }
@@ -34,15 +30,6 @@ void gltf::common_mesh_builder::make_subset(gl::scene::scene& gl_scene, const gl
     if (!geom_subset.tex_coords0.data.empty()) {
         utils::fill_vao(geom_subset.tex_coords0, vao, 1);
     }
-//
-//    if (!geom_subset.normals.empty()) {
-//        utils::fill_vao(geom_subset.normals, vao, 2);
-//    }
-//
-//    if (!geom_subset.tangents.empty()) {
-//        utils::fill_vao(geom_subset.tangents, vao, 3);
-//    }
-
 
     if (!geom_subset.normals.data.empty()) {
         utils::fill_vao(geom_subset.normals, vao, 2);

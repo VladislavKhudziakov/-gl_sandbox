@@ -72,7 +72,7 @@ namespace
     void set_shader_param(const gl::program& p, const std::string& param_name, void* data, gl::scene::parameter_type pt, gl::scene::parameter_component_type pct)
     {
         switch (pct) {
-            case gl::scene::parameter_component_type::vec1:
+            case gl::scene::parameter_component_type::scalar:
                 if (pt == gl::scene::parameter_type::f32) {
                     p.set_uniform(param_name, *(float*) (data));
                 } else {

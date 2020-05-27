@@ -2,9 +2,7 @@
 
 #include "mesh.hpp"
 
-#include <glm/gtc/type_ptr.hpp>
 #include <gltf/misc/acessor_utils.hpp>
-
 #include <third/tinygltf/tiny_gltf.h>
 
 
@@ -33,12 +31,6 @@ gltf::mesh::geom_subset::geom_subset(const tinygltf::Primitive& primitive, const
     utils::copy_buffer_bytes(normals, model, primitive.attributes.at("NORMAL"));
 
     utils::copy_buffer_bytes(tangents, model, primitive.attributes.at("TANGENT"));
-
-//    utils::copy_buffer_data([](glm::vec3& ref) { return glm::value_ptr(ref); }, positions, model, primitive.attributes.at("POSITION"));
-//
-//    utils::copy_buffer_data([](glm::vec3& ref) { return glm::value_ptr(ref); }, normals, model, primitive.attributes.at("NORMAL"));
-//
-//    utils::copy_buffer_data([](glm::vec4& ref) { return glm::value_ptr(ref); }, tangents, model, primitive.attributes.at("TANGENT"));
 
     if (primitive.attributes.find("TEXCOORD_0") != primitive.attributes.end()) {
         utils::copy_buffer_bytes(tex_coords0, model, primitive.attributes.at("TEXCOORD_0"));

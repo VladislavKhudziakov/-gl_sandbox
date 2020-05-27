@@ -710,10 +710,10 @@ layout (location = 0) out vec4 frag_color;
 
 in vec3 v_pos;
 
-uniform samplerCube s_bg;
+uniform samplerCube s_env;
 void main()
 {
-  vec3 bg_color = texture(s_bg, v_pos).rgb;
+  vec3 bg_color = texture(s_env, v_pos).rgb;
   bg_color = sqrt(vec3(1.) - exp(-bg_color));
   frag_color = vec4(bg_color, 1.);
 }
