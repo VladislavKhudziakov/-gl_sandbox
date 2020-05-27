@@ -34,8 +34,8 @@ namespace gl::scene
         framebuffer(scene& s, uint32_t i, uint32_t w, uint32_t h);
         ~framebuffer() = default;
 
-        void blit(uint32_t dst_width, uint32_t dst_height);
-        void blit(const framebuffer& dst);
+        void blit(uint32_t dst_width, uint32_t dst_height) const;
+        void blit(const framebuffer& dst) const;
         void bind(framebuffer_target target = framebuffer_target::draw) const;
         void unbind() const;
         void resize(uint32_t w, uint32_t h);

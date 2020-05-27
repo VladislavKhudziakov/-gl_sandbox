@@ -31,7 +31,21 @@ namespace gl::scene
         uint32_t mesh_idx = -1;
         uint32_t material_idx = -1;
 
-        drawable::topology topology = drawable::topology::triangles;
+        drawable::topology topo = drawable::topology::triangles;
+    };
+
+
+    struct render_command
+    {
+        enum class type
+        {
+            pass, draw, blit
+        };
+
+        render_command::type type;
+
+        uint32_t source_index;
+        uint32_t dst_index;
     };
 
     struct scene
@@ -44,12 +58,14 @@ namespace gl::scene
         std::vector<gl::scene::pass> passes;
         std::vector<gl::scene::texture> textures;
         std::vector<gl::scene::parameter> parameters;
+        std::vector<gl::scene::render_command> commands;
 
         std::vector<gl::framebuffer_object> fbos;
         std::vector<gl::program> shaders;
         std::vector<gl::vertex_array_object> vertex_sources;
-        std::vector<gl::buffer<GL_ELEMENT_ARRAY_BUFFER>> index_sources;
     };
 
     void draw(const scene& s, const std::vector<uint32_t>&, uint32_t pass_idx);
+
+    void draw(const scene& s, uint32_t surface_width, uint32_t surface_height);
 } // namespace gl::scene

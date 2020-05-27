@@ -15,13 +15,13 @@ gl::scene::framebuffer::framebuffer(
 }
 
 
-void gl::scene::framebuffer::blit(uint32_t dst_width, uint32_t dst_height)
+void gl::scene::framebuffer::blit(uint32_t dst_width, uint32_t dst_height) const
 {
     m_scene.fbos.at(m_handler_idx).blit(0, m_width, m_height, dst_width, dst_height);
 }
 
 
-void gl::scene::framebuffer::blit(const gl::scene::framebuffer& dst)
+void gl::scene::framebuffer::blit(const gl::scene::framebuffer& dst) const
 {
     const auto& dst_handler = m_scene.fbos.at(dst.m_handler_idx);
     m_scene.fbos.at(m_handler_idx).blit(dst_handler, m_width, m_height, dst.m_width, dst.m_height);

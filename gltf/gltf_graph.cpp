@@ -50,16 +50,24 @@ void gltf::scene_graph::make_scene_graph()
 void gltf::scene_graph::make_scene_node(uint32_t node_index, std::shared_ptr<scene_graph::node>& parent)
 {
     auto curr_node = std::make_shared<scene_graph::node>();
+    curr_node->m_node_index = node_index;
     const auto& model_node = m_model.nodes.at(node_index);
 
-    curr_node->translation = {model_node.translation[0], model_node.translation[1], model_node.translation[2]};
-    curr_node->scale = {model_node.scale[0], model_node.scale[1], model_node.scale[2]};
+    if (!model_node.translation.empty()) {
+        curr_node->translation = glm::vec3{model_node.translation[0], model_node.translation[1], model_node.translation[2]};
+    }
 
-    curr_node->rotation = {
-        static_cast<float>(model_node.rotation[3]),
-        static_cast<float>(model_node.rotation[0]),
-        static_cast<float>(model_node.rotation[1]),
-        static_cast<float>(model_node.rotation[2])};
+    if (!model_node.scale.empty()) {
+        curr_node->scale = glm::vec3{model_node.scale[0], model_node.scale[1], model_node.scale[2]};
+    }
+
+    if (!model_node.rotation.empty()) {
+        curr_node->rotation = glm::quat{
+            static_cast<float>(model_node.rotation[3]),
+            static_cast<float>(model_node.rotation[0]),
+            static_cast<float>(model_node.rotation[1]),
+            static_cast<float>(model_node.rotation[2])};
+    }
 
     curr_node->m_parent = parent;
     parent->m_children.emplace_back(curr_node);

@@ -35,12 +35,13 @@ namespace gltf::utils
         container.reserve(container.size() + data_accessor.count);
         const auto bytes_size = tinygltf::GetComponentSizeInBytes(data_accessor.componentType);
         const auto components_count = tinygltf::GetNumComponentsInType(data_accessor.type);
+        const auto stride = data_accessor.ByteStride(data_b_view);
 
         for (size_t i = 0; i < data_accessor.count; ++i) {
             auto& curr_el = container.emplace_back();
             assert(sizeof(curr_el) == bytes_size * components_count);
-            std::memcpy(get_data_ptr(container.back()), data_ptr + data_accessor.byteOffset, sizeof(curr_el));
-            data_ptr += data_b_view.byteStride;
+            std::memcpy(get_data_ptr(curr_el), data_ptr + data_accessor.byteOffset, sizeof(curr_el));
+            data_ptr += stride;
         }
     }
 
@@ -54,14 +55,18 @@ namespace gltf::utils
         const auto type_size = tinygltf::GetComponentSizeInBytes(data_accessor.componentType);
         const auto type_components = tinygltf::GetNumComponentsInType(data_accessor.type);
         const auto element_size = type_size * type_components;
+        const auto stride = data_accessor.ByteStride(data_b_view);
+
+        ds.normalized = data_accessor.normalized;
 
         ds.data.resize(data_accessor.count * element_size);
 
         auto dst_data_ptr = ds.data.data();
+        auto src_data_ptr = data_ptr;
 
         for (size_t i = 0; i < data_accessor.count; ++i) {
-            std::memcpy(dst_data_ptr, data_ptr + data_accessor.byteOffset, element_size);
-            data_ptr += data_b_view.byteStride;
+            std::memcpy(dst_data_ptr, src_data_ptr + data_accessor.byteOffset, element_size);
+            src_data_ptr += stride;
             dst_data_ptr += element_size;
         }
     }

@@ -7,6 +7,7 @@
 
 #include <third/tinygltf/tiny_gltf.h>
 
+
 gltf::mesh::mesh(const tinygltf::Model& model, const tinygltf::Mesh& mesh, int32_t skin_index)
     : m_skin_index(skin_index)
 {
@@ -15,21 +16,29 @@ gltf::mesh::mesh(const tinygltf::Model& model, const tinygltf::Mesh& mesh, int32
     }
 }
 
+
 const std::vector<gltf::mesh::geom_subset>&
 gltf::mesh::get_geom_subsets() const
 {
     return m_geometry_subsets;
 }
 
+
 gltf::mesh::geom_subset::geom_subset(const tinygltf::Primitive& primitive, const tinygltf::Model& model)
-    : material_index(primitive.material)
-    , topo(static_cast<mesh::topo>(primitive.mode))
+    : topo(static_cast<mesh::topo>(primitive.mode))
+    , material(primitive.material)
 {
-    utils::copy_buffer_data([](glm::vec3& ref) { return glm::value_ptr(ref); }, positions, model, primitive.attributes.at("POSITION"));
+    utils::copy_buffer_bytes(positions, model, primitive.attributes.at("POSITION"));
 
-    utils::copy_buffer_data([](glm::vec3& ref) { return glm::value_ptr(ref); }, normals, model, primitive.attributes.at("NORMAL"));
+    utils::copy_buffer_bytes(normals, model, primitive.attributes.at("NORMAL"));
 
-    utils::copy_buffer_data([](glm::vec4& ref) { return glm::value_ptr(ref); }, tangents, model, primitive.attributes.at("TANGENT"));
+    utils::copy_buffer_bytes(tangents, model, primitive.attributes.at("TANGENT"));
+
+//    utils::copy_buffer_data([](glm::vec3& ref) { return glm::value_ptr(ref); }, positions, model, primitive.attributes.at("POSITION"));
+//
+//    utils::copy_buffer_data([](glm::vec3& ref) { return glm::value_ptr(ref); }, normals, model, primitive.attributes.at("NORMAL"));
+//
+//    utils::copy_buffer_data([](glm::vec4& ref) { return glm::value_ptr(ref); }, tangents, model, primitive.attributes.at("TANGENT"));
 
     if (primitive.attributes.find("TEXCOORD_0") != primitive.attributes.end()) {
         utils::copy_buffer_bytes(tex_coords0, model, primitive.attributes.at("TEXCOORD_0"));

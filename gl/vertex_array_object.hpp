@@ -30,14 +30,8 @@ namespace gl
             uint32_t stride,
             uint32_t offset = 0,
             uint32_t type = GL_FLOAT,
-            uint32_t normalized = GL_FALSE)
-        {
-            bind_guard buf_guard(buf);
-            bind_guard self_guard(*this);
-            glEnableVertexAttribArray(m_next_location_idx);
-            glVertexAttribPointer(m_next_location_idx, elements_count, type, normalized, stride, reinterpret_cast<void*>(offset));
-            ++m_next_location_idx;
-        }
+            uint32_t normalized = GL_FALSE,
+            int32_t location = -1);
 
         void bind() const;
         void unbind() const;

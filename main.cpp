@@ -4,10 +4,20 @@
 #include <GLFW/glfw3.h>
 
 #include <assimp_handlers.hpp>
-#include <gltf/gltf_handlers.hpp>
 #include <gltf/camera.hpp>
 
 #include <glm/gtx/euler_angles.hpp>
+
+#include <gltf/gltf_parser.hpp>
+
+#include <gltf/common_images_builder.hpp>
+#include <gltf/common_mesh_builder.hpp>
+#include <gltf/common_material_builder.hpp>
+#include <gltf/common_parameters_builder.hpp>
+#include <gltf/common_drawables_builder.hpp>
+#include <gltf/common_commands_builder.hpp>
+
+
 
 struct light_source
 {
@@ -100,10 +110,26 @@ int main()
         return -1;
     }
     {
-        auto scene = gltf::load_scene("/Users/vladislavkhudiakov/Downloads/teapot_and_tentacles/scene.gltf", "/Users/vladislavkhudiakov/Documents/dev/gl_sandbox/models/hdr/newport_loft.hdr");
-        gltf::camera cam(0, 1, scene);
-
         float anim_key = 0;
+        gl::scene::scene scene;
+
+        gltf::gltf_parser p {
+            {
+                std::make_unique<gltf::common_mesh_builder>(),
+                std::make_unique<gltf::common_material_builder>(),
+                std::make_unique<gltf::common_parameters_builder>(),
+                std::make_unique<gltf::common_images_builder>(),
+                std::make_unique<gltf::common_drawables_builder>(),
+                std::make_unique<gltf::common_commands_builder>()
+            }
+        };
+
+        p.parse(
+            "/Users/vladislavkhudiakov/Downloads/teapot_and_tentacles/scene.gltf",
+            "/Users/vladislavkhudiakov/Documents/dev/gl_sandbox/models/hdr/newport_loft.hdr",
+            scene);
+
+        gltf::camera cam(0, 1, scene);
 
         while (!glfwWindowShouldClose(window)) {
             {
@@ -146,8 +172,7 @@ int main()
                     }
                 }
 
-                gl::scene::draw(scene, {0, 1, 2, 3}, 0);
-                scene.framebuffers.at(scene.passes.front().get_framebuffer_idx()).blit(window_fb_width, window_fb_height);
+                gl::scene::draw(scene, window_fb_width, window_fb_height);
                 glfwSwapBuffers(window);
                 glfwPollEvents();
                 anim_key += 0.5;

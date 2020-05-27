@@ -9,13 +9,18 @@
 #include <glm/vec4.hpp>
 
 #include <vector>
+#include <string>
+#include <array>
+
 
 namespace tinygltf
 {
   class Mesh;
   class Model;
   class Primitive;
+  class Material;
 }
+
 
 namespace gltf
 {
@@ -32,12 +37,15 @@ namespace gltf
             geom_subset(const tinygltf::Primitive& primitive, const tinygltf::Model& model);
             ~geom_subset() = default;
 
-            uint32_t material_index;
             mesh::topo topo;
 
-            std::vector<glm::vec3> positions;
-            std::vector<glm::vec3> normals;
-            std::vector<glm::vec4> tangents;
+//            std::vector<glm::vec3> positions;
+//            std::vector<glm::vec3> normals;
+//            std::vector<glm::vec4> tangents;
+
+            data_storage positions;
+            data_storage normals;
+            data_storage tangents;
 
             data_storage tex_coords0;
             data_storage tex_coords1;
@@ -45,13 +53,15 @@ namespace gltf
             data_storage joints;
             data_storage weights;
             data_storage indices;
+
+            uint32_t material;
         };
 
         mesh(const tinygltf::Model& model, const tinygltf::Mesh& mesh, int32_t skin_index);
         virtual ~mesh() = default;
         const std::vector<geom_subset>& get_geom_subsets() const;
 
-    protected:
+    private:
         int32_t m_skin_index;
         std::vector<geom_subset> m_geometry_subsets;
     };

@@ -41,3 +41,23 @@ void gl::vertex_array_object::unbind() const
 {
     glBindVertexArray(0);
 }
+void gl::vertex_array_object::add_vertex_array(
+    const gl::buffer<GL_ARRAY_BUFFER>& buf,
+    uint32_t elements_count,
+    uint32_t stride,
+    uint32_t offset,
+    uint32_t type,
+    uint32_t normalized,
+    int32_t location)
+{
+    if (location >= 0) {
+        assert(location >= m_next_location_idx);
+        m_next_location_idx = location;
+    }
+
+    bind_guard buf_guard(buf);
+    bind_guard self_guard(*this);
+    glEnableVertexAttribArray(m_next_location_idx);
+    glVertexAttribPointer(m_next_location_idx, elements_count, type, normalized, stride, reinterpret_cast<void*>(offset));
+    ++m_next_location_idx;
+}

@@ -24,5 +24,5 @@ void gltf::camera::update(float w, float h)
     auto& view_param = m_scene.parameters.at(m_scene_view_idx);
 
     std::memcpy(proj_param.get_data(), glm::value_ptr(m_proj_matrix), sizeof(m_proj_matrix));
-    std::memcpy(view_param.get_data(), glm::value_ptr(m_view_matrix), sizeof(m_proj_matrix));
+    std::memcpy(view_param.get_data(), glm::value_ptr(m_view_matrix), sizeof(m_view_matrix));
 }

@@ -757,7 +757,7 @@ uniform vec3 u_albedo;
 uniform vec3 u_cam_pos;
 
 uniform sampler2D s_albedo;
-uniform sampler2D s_mrao;
+uniform sampler2D s_metallic_roughness;
 uniform sampler2D s_normal;
 uniform samplerCube s_ibl_diff;
 uniform samplerCube s_ibl_spec;
@@ -824,7 +824,7 @@ void main()
   vec3 R = reflect(-V, N);
   vec3 F0 = vec3(0.04);
   vec3 albedo = texture(s_albedo, var_uv).rgb;
-  vec4 mrao = texture(s_mrao, var_uv);
+  vec4 mrao = texture(s_metallic_roughness, var_uv);
 
   float metallic = mrao.r;
   float roughness = mrao.g;

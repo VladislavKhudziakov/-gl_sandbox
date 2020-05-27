@@ -74,7 +74,7 @@ uint32_t gl::scene::attachment::get_handler_idx() const
 void gl::scene::attachment::set_clear_values(const float* values)
 {
     for (size_t i = 0; i < 4; ++i) {
-        m_clear_values[0] = values[i];
+        m_clear_values[i] = values[i];
     }
 }
 
