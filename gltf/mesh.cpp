@@ -4,6 +4,7 @@
 
 #include <gltf/misc/acessor_utils.hpp>
 #include <third/tinygltf/tiny_gltf.h>
+#include <iostream>
 
 
 gltf::mesh::mesh(const tinygltf::Model& model, const tinygltf::Mesh& mesh, int32_t skin_index)
@@ -21,7 +22,6 @@ gltf::mesh::get_geom_subsets() const
     return m_geometry_subsets;
 }
 
-
 gltf::mesh::geom_subset::geom_subset(const tinygltf::Primitive& primitive, const tinygltf::Model& model)
     : topo(static_cast<mesh::topo>(primitive.mode))
     , material(primitive.material)
@@ -30,7 +30,9 @@ gltf::mesh::geom_subset::geom_subset(const tinygltf::Primitive& primitive, const
 
     utils::copy_buffer_bytes(normals, model, primitive.attributes.at("NORMAL"));
 
-    utils::copy_buffer_bytes(tangents, model, primitive.attributes.at("TANGENT"));
+    if (primitive.attributes.find("TANGENT") != primitive.attributes.end()) {
+        utils::copy_buffer_bytes(tangents, model, primitive.attributes.at("TANGENT"));
+    }
 
     if (primitive.attributes.find("TEXCOORD_0") != primitive.attributes.end()) {
         utils::copy_buffer_bytes(tex_coords0, model, primitive.attributes.at("TEXCOORD_0"));

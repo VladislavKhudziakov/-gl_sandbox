@@ -29,7 +29,15 @@ namespace gltf
     public:
         enum class topo
         {
-          points, lines, lines_loop, lines_strip, triangles, triangles_strip, triangles_fan
+            points,
+            lines,
+            lines_loop,
+            lines_strip,
+            triangles,
+            triangles_strip,
+            triangles_fan,
+            lines_adj = 0x000A,
+            triangles_adj = 0x000C
         };
 
         struct geom_subset

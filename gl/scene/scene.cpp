@@ -224,10 +224,15 @@ void gl::scene::draw(const gl::scene::scene& s, uint32_t surface_width, uint32_t
                     curr_pass->set_state(mat.get_state());
 
                     if (mesh.get_indices_size() > 0) {
+                        auto t = GLenum(drawable.topo);
+                        assert(t == GL_TRIANGLES_ADJACENCY);
                         glDrawElements(GLenum(drawable.topo), mesh.get_indices_size(), GLenum(mesh.get_indices_type()), nullptr);
                     } else {
                         glDrawArrays(GLenum(drawable.topo), 0, mesh.get_vertices_size());
                     }
+
+                    auto err = glGetError();
+                    assert(err == GL_NO_ERROR);
 
                     for (const auto& [s_name, s_idx] : mat.get_textures()) {
                         std::visit([](auto& t) { t.unbind(); }, s.textures.at(s_idx));
@@ -246,7 +251,8 @@ void gl::scene::draw(const gl::scene::scene& s, uint32_t surface_width, uint32_t
         }
     }
 
-    assert(glGetError() == GL_NO_ERROR);
+    auto err = glGetError();
+    assert(err == GL_NO_ERROR);
 
     if (curr_pass) {
         const auto& curr_fb = s.framebuffers.at(curr_pass->get_framebuffer_idx());

@@ -16,6 +16,8 @@ file(GLOB_RECURSE GL_SRC "./gl/*.cpp")
 file(GLOB_RECURSE GLTF_SRC "./gltf/*.cpp")
 
 include_directories(${CMAKE_CURRENT_LIST_DIR})
+include_directories(third/glm)
+
 add_executable(gl_sandbox main.cpp ${src} ${GL_SRC} ${GLTF_SRC})
 
-target_link_libraries(gl_sandbox glm assimp glad glfw tinygltf)
+target_link_libraries(gl_sandbox assimp glad glfw tinygltf)

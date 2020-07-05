@@ -12,7 +12,9 @@
 
 #include <gltf/common_images_builder.hpp>
 #include <gltf/common_mesh_builder.hpp>
+#include <gltf/adj_mesh_builder.hpp>
 #include <gltf/common_material_builder.hpp>
+#include <gltf/custom_material_builder.hpp>
 #include <gltf/common_parameters_builder.hpp>
 #include <gltf/common_drawables_builder.hpp>
 #include <gltf/common_commands_builder.hpp>
@@ -34,7 +36,7 @@ constexpr light_source light_sources[]{
     {{300.f, 300.f, 300.f}, {10.0f, -10.0f, -10.0f}},
 };
 
-glm::vec3 view_pos{0.0f, 0.0f, 250.0f};
+glm::vec3 view_pos{0.0f, 0.0f, 2.0f};
 glm::vec3 view_dir{0.0f, 0.0f, 0.0f};
 glm::vec3 camera_dir{0.0f, 0.0f, -1.0f};
 
@@ -115,8 +117,8 @@ int main()
 
         gltf::gltf_parser p {
             {
-                std::make_unique<gltf::common_mesh_builder>(),
-                std::make_unique<gltf::common_material_builder>(),
+                std::make_unique<gltf::adj_mesh_builder>(),
+                std::make_unique<gltf::custom_material_builder>(),
                 std::make_unique<gltf::common_parameters_builder>(),
                 std::make_unique<gltf::common_images_builder>(),
                 std::make_unique<gltf::common_drawables_builder>(),
@@ -125,11 +127,13 @@ int main()
         };
 
         p.parse(
-            "/Users/vladislavkhudiakov/Downloads/teapot_and_tentacles/scene.gltf",
+            "/Users/vladislavkhudiakov/Downloads/sphere2/scene.gltf",
             "/Users/vladislavkhudiakov/Documents/dev/gl_sandbox/models/hdr/newport_loft.hdr",
             scene);
 
         gltf::camera cam(0, 1, scene);
+
+        assert(glGetError() == GL_NO_ERROR);
 
         while (!glfwWindowShouldClose(window)) {
             {
